@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import SmoothScroll from "@/components/SmoothScroll";
 import CustomCursor from "@/components/CustomCursor";
 import Preloader from "@/components/Preloader";
+import LiveChatWidget from "@/components/LiveChatWidget";
 
 const syne = Syne({
   subsets: ["latin"],
@@ -67,6 +68,7 @@ export default function RootLayout({
           <div style={{ flex: 1 }}>{children}</div>
           <Footer />
         </SmoothScroll>
+        <LiveChatWidget />
       </body>
     </html>
   );

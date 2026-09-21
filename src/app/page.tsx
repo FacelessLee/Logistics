@@ -1179,14 +1179,14 @@ export default function Home() {
               </div>
 
               <Link
-                href="/admin"
+                href="/track"
                 className="btn btn-secondary"
                 style={{ textDecoration: 'none' }}
               >
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--accent-orange)' }}>
-                  [CONSOLE]
+                  [TRACKING]
                 </span>
-                <span>ENTER DISPATCH CONTROL HUB</span>
+                <span>QUERY SHIPMENT TELEMETRY</span>
                 <ArrowRight size={14} />
               </Link>
             </div>
