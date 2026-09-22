@@ -1,13 +1,28 @@
 {
   "conversations": [
     {
+      "id": "conv-1790073016287-931",
+      "visitorId": "vis-mucj9748-670i",
+      "visitorName": "Visitor #670I",
+      "visitorLocation": "Website visitor",
+      "currentPage": "/",
+      "status": "ACTIVE",
+      "unreadCountAgent": 0,
+      "unreadCountVisitor": 0,
+      "createdAt": "2026-09-22T10:30:16.287Z",
+      "updatedAt": "2026-09-22T10:30:16.287Z",
+      "lastMessageText": "Welcome to Navithon Operations! A dedicated logistics dispatcher is available. How may we assist your freight shipment?",
+      "lastMessageTimestamp": "2026-09-22T10:30:16.287Z",
+      "assignedAgent": "David M. (Operations)"
+    },
+    {
       "id": "conv-1790025002415-355",
       "visitorId": "vis-mubqo2o6-pedl",
       "visitorName": "Visitor #PEDL",
       "visitorLocation": "Active Visitor Session",
       "currentPage": "/track",
       "status": "ACTIVE",
-      "unreadCountAgent": 1,
+      "unreadCountAgent": 0,
       "unreadCountVisitor": 1,
       "createdAt": "2026-09-21T21:10:02.416Z",
       "updatedAt": "2026-09-21T21:12:02.121Z",
@@ -205,7 +220,7 @@
         "senderName": "Visitor #PEDL",
         "text": "TRK-2026-89420",
         "timestamp": "2026-09-21T21:11:30.262Z",
-        "read": false
+        "read": true
       },
       {
         "id": "msg-1790025122121-3883",
@@ -215,6 +230,17 @@
         "text": "Consignment TRK-2026-89420 (Tokyo (HND), Japan → New York (JFK), United States) is currently In Transit at Anchorage Air Cargo Transshipment Hub (ANC), AK. Expected delivery: 18/09/2026.",
         "timestamp": "2026-09-21T21:12:02.121Z",
         "read": false
+      }
+    ],
+    "conv-1790073016287-931": [
+      {
+        "id": "msg-1790073016287-423",
+        "conversationId": "conv-1790073016287-931",
+        "sender": "agent",
+        "senderName": "David M. (Operations)",
+        "text": "Welcome to Navithon Operations! A dedicated logistics dispatcher is available. How may we assist your freight shipment?",
+        "timestamp": "2026-09-22T10:30:16.287Z",
+        "read": true
       }
     ]
   }

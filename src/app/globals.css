@@ -132,6 +132,159 @@ html, body {
   line-height: 1.6;
 }
 
+/* Visitor chat: a quiet, light support surface that stays usable on phones. */
+.live-chat-widget {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 9999;
+  font-family: var(--font-sans);
+}
+
+.live-chat-teaser {
+  position: absolute;
+  right: 0;
+  bottom: 76px;
+  display: flex;
+  gap: 12px;
+  width: 292px;
+  padding: 14px;
+  color: #262626;
+  background: #fff;
+  border: 1px solid #ece8e4;
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(32, 25, 20, .16);
+  animation: chat-rise .22s ease-out;
+}
+
+.live-chat-teaser-mark {
+  display: grid;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  color: #fff;
+  background: var(--accent-orange);
+  border-radius: 9px;
+  place-items: center;
+}
+
+.live-chat-teaser-heading,
+.live-chat-compose-row,
+.live-chat-agent,
+.live-chat-actions {
+  display: flex;
+  align-items: center;
+}
+
+.live-chat-teaser-heading {
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: .84rem;
+}
+
+.live-chat-teaser-heading button,
+.live-chat-actions button,
+.live-chat-file-preview button {
+  display: grid;
+  padding: 3px;
+  color: #777;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  place-items: center;
+}
+
+.live-chat-teaser-copy {
+  padding: 0;
+  color: #69635e;
+  font: inherit;
+  font-size: .77rem;
+  line-height: 1.45;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.live-chat-window {
+  position: absolute;
+  right: 0;
+  bottom: 76px;
+  display: flex;
+  flex-direction: column;
+  width: 380px;
+  height: min(600px, calc(100dvh - 108px));
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e6e1dc;
+  border-radius: 18px;
+  box-shadow: 0 22px 60px rgba(26, 19, 13, .2);
+  animation: chat-rise .22s ease-out;
+}
+
+.live-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 17px;
+  color: #fff;
+  background: var(--accent-orange);
+}
+
+.live-chat-agent { gap: 10px; }
+.live-chat-agent strong { display: block; font-size: .93rem; font-weight: 700; }
+.live-chat-agent span { display: flex; align-items: center; gap: 5px; margin-top: 2px; font-size: .7rem; opacity: .9; }
+.live-chat-agent i { width: 6px; height: 6px; background: #fff; border-radius: 50%; }
+.live-chat-avatar { display: grid; width: 36px; height: 36px; color: var(--accent-orange); font-weight: 800; background: #fff; border-radius: 10px; place-items: center; }
+.live-chat-actions { gap: 4px; }
+.live-chat-actions button { width: 30px; height: 30px; color: #fff; border-radius: 7px; }
+.live-chat-actions button:hover { background: rgba(255,255,255,.16); }
+.live-chat-restored { display: flex; align-items: center; gap: 7px; padding: 8px 16px; color: #a15435; font-size: .72rem; background: #fff4ef; border-bottom: 1px solid #f5ddd2; }
+
+.live-chat-messages { display: flex; flex: 1; flex-direction: column; gap: 13px; padding: 16px; overflow-y: auto; background: #fff; }
+.live-chat-welcome { align-self: center; max-width: 90%; padding: 7px 11px; color: #8b8179; font-size: .72rem; text-align: center; background: #faf8f6; border-radius: 8px; }
+.live-chat-message { display: flex; flex-direction: column; max-width: 82%; }
+.live-chat-message.is-visitor { align-self: flex-end; align-items: flex-end; }
+.live-chat-message.is-agent { align-self: flex-start; align-items: flex-start; }
+.live-chat-sender { margin-bottom: 4px; color: #9a918a; font-size: .66rem; }
+.live-chat-bubble { padding: 10px 13px; color: #302c29; font-size: .86rem; line-height: 1.45; word-break: break-word; background: #f5f3f1; border-radius: 14px 14px 14px 4px; }
+.is-visitor .live-chat-bubble { color: #fff; background: var(--accent-orange); border-radius: 14px 14px 4px 14px; }
+.live-chat-time { display: flex; align-items: center; gap: 3px; margin-top: 4px; color: #aaa19a; font-size: .62rem; }
+.live-chat-attachment { display: flex; align-items: center; gap: 7px; max-width: 220px; margin-top: 5px; padding: 7px 9px; color: #5d5149; font-size: .73rem; text-decoration: none; background: #fbf8f5; border: 1px solid #ebe4de; border-radius: 9px; }
+.live-chat-attachment img { width: 46px; height: 46px; object-fit: cover; border-radius: 6px; }
+.live-chat-attachment span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-chat-prompts { display: flex; gap: 6px; padding: 8px 13px; overflow-x: auto; border-top: 1px solid #f0ece8; }
+.live-chat-prompts button { flex-shrink: 0; padding: 6px 9px; color: #756a63; font-size: .69rem; white-space: nowrap; background: #fff; border: 1px solid #e7e0da; border-radius: 999px; cursor: pointer; }
+.live-chat-prompts button:hover { color: var(--accent-orange); border-color: var(--accent-orange); }
+.live-chat-composer { padding: 10px 12px 9px; background: #fbfaf9; border-top: 1px solid #eee9e5; }
+.live-chat-compose-row { gap: 7px; }
+.live-chat-compose-row > input[type='text'], .live-chat-compose-row > input:not([type]) { flex: 1; min-width: 0; padding: 10px 11px; color: #302c29; font: inherit; font-size: .83rem; background: #fff; border: 1px solid #e0d9d3; border-radius: 10px; outline: none; }
+.live-chat-compose-row input:focus { border-color: var(--accent-orange); }
+.live-chat-icon-button { display: grid; flex: 0 0 32px; width: 32px; height: 32px; color: #7f746c; background: #fff; border: 1px solid #e0d9d3; border-radius: 9px; cursor: pointer; place-items: center; }
+.live-chat-icon-button:hover { color: var(--accent-orange); border-color: var(--accent-orange); }
+.live-chat-send { display: grid; flex: 0 0 36px; width: 36px; height: 36px; color: #fff; background: var(--accent-orange); border: 0; border-radius: 10px; cursor: pointer; place-items: center; }
+.live-chat-send:disabled { background: #d9d2cc; cursor: default; }
+.live-chat-composer small { display: block; margin: 6px 0 0 40px; color: #a39a93; font-size: .63rem; }
+.live-chat-file-preview { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; padding: 6px 8px; color: #6d625a; font-size: .7rem; background: #fff; border: 1px solid #e6ded7; border-radius: 8px; }
+.live-chat-file-preview span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-chat-launcher { position: relative; display: grid; width: 56px; height: 56px; color: #fff; background: var(--accent-orange); border: 0; border-radius: 50%; box-shadow: 0 10px 25px rgba(255,107,53,.35); cursor: pointer; place-items: center; }
+.live-chat-launcher:hover { transform: translateY(-2px); }
+.live-chat-launcher span { position: absolute; top: -3px; right: -3px; display: grid; width: 20px; height: 20px; color: var(--accent-orange); font-size: .68rem; font-weight: 800; background: #fff; border: 2px solid var(--accent-orange); border-radius: 50%; place-items: center; }
+.install-prompt { position: fixed; right: 24px; bottom: 94px; z-index: 9998; display: flex; align-items: center; gap: 12px; max-width: 330px; padding: 11px 12px 11px 14px; color: #302c29; background: #fff; border: 1px solid #e5ded8; border-radius: 12px; box-shadow: 0 12px 34px rgba(31,22,16,.16); }
+.install-prompt div { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.install-prompt strong { font-size: .78rem; }
+.install-prompt span { color: #847970; font-size: .69rem; }
+.install-prompt > button:not(.install-prompt-dismiss) { display: flex; align-items: center; gap: 5px; padding: 7px 9px; color: #fff; font-size: .7rem; font-weight: 700; background: var(--accent-orange); border: 0; border-radius: 7px; cursor: pointer; }
+.install-prompt-dismiss { display: grid; padding: 3px; color: #988d84; background: transparent; border: 0; cursor: pointer; place-items: center; }
+@keyframes chat-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (max-width: 600px) {
+  .live-chat-widget { right: 14px; bottom: 14px; }
+  .live-chat-window { right: -2px; bottom: 68px; width: min(380px, calc(100vw - 28px)); height: min(650px, calc(100dvh - 92px)); border-radius: 16px; }
+  .live-chat-teaser { right: 0; bottom: 68px; width: min(292px, calc(100vw - 28px)); }
+  .install-prompt { right: 14px; bottom: 82px; max-width: calc(100vw - 28px); }
+}
+
 /* ═══════════════════════════════════════════════════
    CONTAINER
    ═══════════════════════════════════════════════════ */

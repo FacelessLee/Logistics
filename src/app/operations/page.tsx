@@ -583,7 +583,7 @@ export default function OperationsPortalPage() {
                   textTransform: 'uppercase',
                 }}
               >
-                AGENT LIVE CHAT CRM & DISPATCH
+                CUSTOMERS / CONSIGNMENTS / DELIVERIES / TRACKING
               </div>
             </div>
           </div>
@@ -626,7 +626,7 @@ export default function OperationsPortalPage() {
               }}
             >
               <MessageSquare size={14} />
-              <span>LIVE CUSTOMER CRM</span>
+              <span>CUSTOMER INBOX</span>
               {waitingChatsCount > 0 && (
                 <span
                   style={{
@@ -661,7 +661,7 @@ export default function OperationsPortalPage() {
               }}
             >
               <Package size={14} />
-              <span>FREIGHT CONSIGNMENTS</span>
+              <span>SHIPMENTS & DELIVERY</span>
             </button>
           </div>
         </div>
@@ -1292,6 +1292,32 @@ export default function OperationsPortalPage() {
                         >
                           {msg.text}
                         </div>
+                        {msg.attachment && (
+                          <a
+                            href={msg.attachment.dataUrl}
+                            download={msg.attachment.name}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              marginTop: '6px',
+                              padding: '7px 10px',
+                              color: isAgent ? '#FFD9C9' : 'var(--accent-orange)',
+                              fontSize: '0.74rem',
+                              textDecoration: 'none',
+                              background: isAgent ? 'rgba(255, 107, 53, 0.12)' : 'rgba(255, 255, 255, 0.06)',
+                              border: '1px solid rgba(255, 107, 53, 0.3)',
+                              borderRadius: '8px',
+                            }}
+                          >
+                            <Paperclip size={14} />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {msg.attachment.name}
+                            </span>
+                          </a>
+                        )}
                       </div>
                     );
                   })}

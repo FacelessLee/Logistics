@@ -2,12 +2,20 @@ export type MessageSender = 'visitor' | 'agent' | 'system';
 
 export type ConversationStatus = 'ACTIVE' | 'PENDING' | 'RESOLVED';
 
+export interface ChatAttachment {
+  name: string;
+  type: string;
+  size: number;
+  dataUrl: string;
+}
+
 export interface ChatMessage {
   id: string;
   conversationId: string;
   sender: MessageSender;
   senderName: string;
   text: string;
+  attachment?: ChatAttachment;
   timestamp: string; // ISO string
   read: boolean;
 }

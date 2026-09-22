@@ -1,4 +1,4 @@
-import { Conversation, ChatMessage, MessageSender, ConversationStatus, VisitorMetadata } from './chatTypes';
+import { Conversation, ChatMessage, ChatAttachment, MessageSender, ConversationStatus, VisitorMetadata } from './chatTypes';
 import { INITIAL_CONVERSATIONS, INITIAL_MESSAGES } from '../data/initialChats';
 import fs from 'fs';
 import path from 'path';
@@ -141,6 +141,7 @@ export function addChatMessage(
     sender: MessageSender;
     senderName: string;
     text: string;
+    attachment?: ChatAttachment;
   }
 ): { message: ChatMessage; conversation: Conversation } {
   initStores();
@@ -156,6 +157,7 @@ export function addChatMessage(
     sender: messageData.sender,
     senderName: messageData.senderName,
     text: messageData.text.trim(),
+    attachment: messageData.attachment,
     timestamp: now,
     read: false
   };
@@ -166,7 +168,7 @@ export function addChatMessage(
   globalThis.__CHAT_MESSAGES__![conversationId].push(newMsg);
 
   // Update conversation
-  conv.lastMessageText = newMsg.text;
+  conv.lastMessageText = newMsg.text || (newMsg.attachment ? `[Attachment] ${newMsg.attachment.name}` : 'New message');
   conv.lastMessageTimestamp = now;
   conv.updatedAt = now;
 

@@ -4,7 +4,7 @@ import {
   getMessagesForConversation,
   getConversationById
 } from '@/lib/chatStorage';
-import { MessageSender } from '@/lib/chatTypes';
+import { ChatAttachment, MessageSender } from '@/lib/chatTypes';
 
 export async function GET(req: NextRequest) {
   try {
@@ -32,11 +32,28 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { conversationId, sender, senderName, text } = body;
+    const { conversationId, sender, senderName, text, attachment } = body;
 
-    if (!conversationId || !sender || !text || !text.trim()) {
+    if (!conversationId || !sender || (!text?.trim() && !attachment)) {
       return NextResponse.json(
-        { success: false, error: 'conversationId, sender, and text are required' },
+        { success: false, error: 'conversationId, sender, and text or attachment are required' },
+        { status: 400 }
+      );
+    }
+
+    const validAttachment = attachment &&
+      typeof attachment.name === 'string' &&
+      typeof attachment.type === 'string' &&
+      typeof attachment.size === 'number' &&
+      typeof attachment.dataUrl === 'string' &&
+      attachment.size <= 5 * 1024 * 1024 &&
+      attachment.dataUrl.startsWith(`data:${attachment.type};`)
+      ? attachment as ChatAttachment
+      : undefined;
+
+    if (attachment && !validAttachment) {
+      return NextResponse.json(
+        { success: false, error: 'Attachments must be valid files up to 5 MB' },
         { status: 400 }
       );
     }
@@ -55,7 +72,8 @@ export async function POST(req: NextRequest) {
     const result = addChatMessage(conversationId, {
       sender: sender as MessageSender,
       senderName: effectiveSenderName,
-      text: text.trim()
+      text: typeof text === 'string' ? text.trim() : '',
+      attachment: validAttachment
     });
 
     return NextResponse.json({

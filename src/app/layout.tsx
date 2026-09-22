@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Syne, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
@@ -7,6 +7,7 @@ import SmoothScroll from "@/components/SmoothScroll";
 import CustomCursor from "@/components/CustomCursor";
 import Preloader from "@/components/Preloader";
 import LiveChatWidget from "@/components/LiveChatWidget";
+import InstallPrompt from "@/components/InstallPrompt";
 
 const syne = Syne({
   subsets: ["latin"],
@@ -44,6 +45,7 @@ export const metadata: Metadata = {
     "project cargo",
     "intermodal logistics",
   ],
+  manifest: "/manifest.webmanifest",
   openGraph: {
     title: "Navithon Logistics | Global Freight Forwarding & Supply Chain Architecture",
     description:
@@ -51,6 +53,10 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "Navithon Logistics",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#ff6b35",
 };
 
 export default function RootLayout({
@@ -69,6 +75,7 @@ export default function RootLayout({
           <Footer />
         </SmoothScroll>
         <LiveChatWidget />
+        <InstallPrompt />
       </body>
     </html>
   );
