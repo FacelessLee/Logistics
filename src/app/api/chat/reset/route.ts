@@ -3,8 +3,8 @@ import { resetChatStore, getAllConversations } from '@/lib/chatStorage';
 
 export async function POST() {
   try {
-    resetChatStore();
-    const refreshed = getAllConversations();
+    await resetChatStore();
+    const refreshed = await getAllConversations();
     return NextResponse.json({ success: true, data: refreshed });
   } catch (error) {
     console.error('Failed to reset chat store:', error);

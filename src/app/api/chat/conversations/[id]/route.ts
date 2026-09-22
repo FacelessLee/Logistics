@@ -14,7 +14,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const conversation = getConversationById(id);
+    const conversation = await getConversationById(id);
     if (!conversation) {
       return NextResponse.json(
         { success: false, error: 'Conversation not found' },
@@ -22,7 +22,7 @@ export async function GET(
       );
     }
 
-    const messages = getMessagesForConversation(id);
+    const messages = await getMessagesForConversation(id);
     return NextResponse.json(
       {
         success: true,
@@ -49,7 +49,7 @@ export async function PATCH(
     const body = await req.json();
     const { status, notes, linkedTrackingId, markReadBy } = body;
 
-    let conv = getConversationById(id);
+    let conv = await getConversationById(id);
     if (!conv) {
       return NextResponse.json(
         { success: false, error: 'Conversation not found' },
@@ -58,15 +58,15 @@ export async function PATCH(
     }
 
     if (status) {
-      conv = updateConversationStatus(id, status as ConversationStatus);
+      conv = await updateConversationStatus(id, status as ConversationStatus);
     }
 
     if (notes !== undefined || linkedTrackingId !== undefined) {
-      conv = updateConversationNotes(id, notes ?? conv?.internalNotes ?? '', linkedTrackingId);
+      conv = await updateConversationNotes(id, notes ?? conv?.internalNotes ?? '', linkedTrackingId);
     }
 
     if (markReadBy === 'agent' || markReadBy === 'visitor') {
-      conv = markConversationRead(id, markReadBy);
+      conv = await markConversationRead(id, markReadBy);
     }
 
     return NextResponse.json({

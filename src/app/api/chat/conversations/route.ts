@@ -7,7 +7,7 @@ import {
 
 export async function GET() {
   try {
-    const conversations = getAllConversations();
+    const conversations = await getAllConversations();
     return NextResponse.json(
       { success: true, data: conversations },
       { headers: { 'Cache-Control': 'no-store' } }
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { conversation, isNew } = getOrCreateVisitorConversation(visitorId, {
+    const { conversation, isNew } = await getOrCreateVisitorConversation(visitorId, {
       name,
       email,
       company,
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       currentPage
     });
 
-    const messages = getMessagesForConversation(conversation.id);
+    const messages = await getMessagesForConversation(conversation.id);
 
     return NextResponse.json({
       success: true,

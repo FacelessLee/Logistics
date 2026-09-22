@@ -124,7 +124,11 @@ export default function LiveChatWidget() {
             if (soundEnabled) playNotificationChime();
             setUnreadCount((count) => count + 1);
           }
-          return result.data;
+          // Preserve any in-flight optimistic messages until confirmed
+          const inFlight = previous.filter((m) => m.id.startsWith('temp-'));
+          if (inFlight.length === 0) return result.data;
+          const serverIds = new Set(result.data.map((m: ChatMessage) => m.id));
+          return [...result.data, ...inFlight.filter((m) => !serverIds.has(m.id))];
         });
       } catch {
         // Polling is a fallback for browsers without a live channel.

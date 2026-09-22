@@ -189,7 +189,12 @@ export default function OperationsPortalPage() {
           const msgRes = await fetch(`/api/chat/messages?conversationId=${selectedConvId}`);
           const msgJson = await msgRes.json();
           if (msgJson.success && Array.isArray(msgJson.data)) {
-            setActiveMessages(msgJson.data);
+            setActiveMessages((prev) => {
+              const inFlight = prev.filter((m) => m.id.startsWith('temp-'));
+              if (inFlight.length === 0) return msgJson.data;
+              const serverIds = new Set(msgJson.data.map((m: ChatMessage) => m.id));
+              return [...msgJson.data, ...inFlight.filter((m) => !serverIds.has(m.id))];
+            });
           }
         }
       } catch {

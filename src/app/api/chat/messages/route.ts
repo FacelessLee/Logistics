@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const messages = getMessagesForConversation(conversationId);
+    const messages = await getMessagesForConversation(conversationId);
     return NextResponse.json(
       { success: true, data: messages },
       { headers: { 'Cache-Control': 'no-store' } }
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const conv = getConversationById(conversationId);
+    const conv = await getConversationById(conversationId);
     if (!conv) {
       return NextResponse.json(
         { success: false, error: 'Conversation not found' },
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     const effectiveSenderName =
       senderName || (sender === 'agent' ? 'David M. (Operations)' : conv.visitorName);
 
-    const result = addChatMessage(conversationId, {
+    const result = await addChatMessage(conversationId, {
       sender: sender as MessageSender,
       senderName: effectiveSenderName,
       text: typeof text === 'string' ? text.trim() : '',
