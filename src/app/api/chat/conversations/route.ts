@@ -8,7 +8,10 @@ import {
 export async function GET() {
   try {
     const conversations = getAllConversations();
-    return NextResponse.json({ success: true, data: conversations });
+    return NextResponse.json(
+      { success: true, data: conversations },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
   } catch (error) {
     console.error('Failed to get conversations:', error);
     return NextResponse.json(

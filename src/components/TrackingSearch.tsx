@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, ArrowRight, Sparkles, Box, ShieldCheck } from 'lucide-react';
+import { Search, ArrowRight } from 'lucide-react';
 
 interface TrackingSearchProps {
   initialValue?: string;
@@ -21,13 +21,6 @@ export default function TrackingSearch({
   const [trackingInput, setTrackingInput] = useState(initialValue);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-
-  const sampleIds = [
-    { id: 'TRK-2026-89420', label: 'Air Medical (In Transit)', tag: 'Tokyo ➔ NYC' },
-    { id: 'EXP-7729-LON-NYC', label: 'Express Courier (Out for Delivery)', tag: 'London ➔ NYC' },
-    { id: 'SEA-4011-SHA-ROT', label: 'Ocean Container (Customs)', tag: 'Shanghai ➔ Rotterdam' },
-    { id: 'NVT-9104-BER-PAR', label: 'Cold Chain (Delivered)', tag: 'Berlin ➔ Paris' },
-  ];
 
   const handleTrackSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -49,18 +42,6 @@ export default function TrackingSearch({
     }
   };
 
-  const handleQuickSampleClick = (id: string) => {
-    setTrackingInput(id);
-    setErrorMessage('');
-    setIsLoading(true);
-    if (onSearch) {
-      onSearch(id);
-      setIsLoading(false);
-    } else {
-      router.push(`/track/${encodeURIComponent(id)}`);
-    }
-  };
-
   const isLarge = size === 'large';
 
   return (
@@ -69,6 +50,7 @@ export default function TrackingSearch({
         onSubmit={handleTrackSubmit}
         className="tracking-search-form"
         style={{
+          display: 'flex',
           background: isLarge ? '#121212' : '#161616',
           padding: isLarge ? '8px 8px 8px 18px' : '6px 6px 6px 14px',
           borderRadius: '9999px',
@@ -98,6 +80,7 @@ export default function TrackingSearch({
           autoFocus={autoFocus}
           style={{
             flex: 1,
+            minWidth: 0,
             background: 'transparent',
             border: 'none',
             outline: 'none',
@@ -146,64 +129,6 @@ export default function TrackingSearch({
         </div>
       )}
 
-      {/* Quick Test Samples */}
-      {isLarge && (
-        <div style={{ marginTop: '20px' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontSize: '0.82rem',
-            color: 'var(--text-muted)',
-            marginBottom: '10px'
-          }}>
-            <Sparkles size={14} color="var(--accent-cyan)" />
-            <span>Quick test with live simulated international consignments:</span>
-          </div>
-          <div style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '10px',
-          }}>
-            {sampleIds.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => handleQuickSampleClick(item.id)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.04)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: 'var(--radius-full)',
-                  padding: '6px 14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  color: 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  fontSize: '0.8rem',
-                  transition: 'all var(--transition-fast)'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(14, 165, 233, 0.12)';
-                  e.currentTarget.style.borderColor = 'rgba(14, 165, 233, 0.4)';
-                  e.currentTarget.style.color = '#fff';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
-                  e.currentTarget.style.color = 'var(--text-secondary)';
-                }}
-              >
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--accent-cyan-light)' }}>
-                  {item.id}
-                </span>
-                <span style={{ color: 'var(--text-muted)' }}>|</span>
-                <span>{item.tag}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

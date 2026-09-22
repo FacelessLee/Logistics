@@ -519,6 +519,7 @@ export default function OperationsPortalPage() {
 
   return (
     <div
+      className="operations-shell"
       style={{
         minHeight: '100vh',
         background: '#080808',
@@ -530,6 +531,7 @@ export default function OperationsPortalPage() {
     >
       {/* ── Top Operations Command Bar ── */}
       <header
+        className="operations-header"
         style={{
           height: '70px',
           background: 'rgba(13, 13, 13, 0.95)',
@@ -545,7 +547,7 @@ export default function OperationsPortalPage() {
         }}
       >
         {/* Left: Brand & Operations Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <div className="operations-header-primary" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div
               style={{
@@ -667,7 +669,7 @@ export default function OperationsPortalPage() {
         </div>
 
         {/* Right: Agent Status, Audio Toggle, Reset Demo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div className="operations-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           {/* Real-time metrics counters */}
           <div
             style={{

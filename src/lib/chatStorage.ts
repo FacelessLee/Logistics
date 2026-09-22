@@ -22,7 +22,10 @@ function loadFromFile(): PersistedChatData | null {
   try {
     if (fs.existsSync(DATA_FILE)) {
       const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw) as PersistedChatData;
+      if (Array.isArray(parsed.conversations) && parsed.messages && typeof parsed.messages === 'object') {
+        return parsed;
+      }
     }
   } catch (err) {
     console.warn('Could not read chat store file, falling back to memory/defaults:', err);
@@ -35,23 +38,27 @@ function saveToFile(conversations: Conversation[], messages: Record<string, Chat
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    fs.writeFileSync(DATA_FILE, JSON.stringify({ conversations, messages }, null, 2), 'utf-8');
+    const tempFile = `${DATA_FILE}.tmp`;
+    fs.writeFileSync(tempFile, JSON.stringify({ conversations, messages }, null, 2), 'utf-8');
+    fs.renameSync(tempFile, DATA_FILE);
   } catch (err) {
     console.warn('Could not persist chat store file:', err);
   }
 }
 
 function initStores() {
+  // Reload on every request so separate workers and dev sessions see the same history.
+  const fromDisk = loadFromFile();
+  if (fromDisk) {
+    globalThis.__CHAT_CONVERSATIONS__ = fromDisk.conversations;
+    globalThis.__CHAT_MESSAGES__ = fromDisk.messages;
+    return;
+  }
+
   if (!globalThis.__CHAT_CONVERSATIONS__ || !globalThis.__CHAT_MESSAGES__) {
-    const fromDisk = loadFromFile();
-    if (fromDisk && Array.isArray(fromDisk.conversations) && fromDisk.messages) {
-      globalThis.__CHAT_CONVERSATIONS__ = fromDisk.conversations;
-      globalThis.__CHAT_MESSAGES__ = fromDisk.messages;
-    } else {
-      globalThis.__CHAT_CONVERSATIONS__ = JSON.parse(JSON.stringify(INITIAL_CONVERSATIONS));
-      globalThis.__CHAT_MESSAGES__ = JSON.parse(JSON.stringify(INITIAL_MESSAGES));
-      saveToFile(globalThis.__CHAT_CONVERSATIONS__!, globalThis.__CHAT_MESSAGES__!);
-    }
+    globalThis.__CHAT_CONVERSATIONS__ = JSON.parse(JSON.stringify(INITIAL_CONVERSATIONS));
+    globalThis.__CHAT_MESSAGES__ = JSON.parse(JSON.stringify(INITIAL_MESSAGES));
+    saveToFile(globalThis.__CHAT_CONVERSATIONS__!, globalThis.__CHAT_MESSAGES__!);
   }
 }
 

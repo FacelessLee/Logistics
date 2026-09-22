@@ -2,11 +2,17 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import FadeIn from '@/components/FadeIn';
 
 export default function Footer() {
+  const pathname = usePathname();
+
+  if (pathname.startsWith('/operations') || pathname.startsWith('/admin')) return null;
+
   return (
     <footer
+      className="site-footer"
       style={{
         background: '#080808',
         borderTop: '1px solid rgba(255, 255, 255, 0.08)',

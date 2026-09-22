@@ -23,11 +23,14 @@ export async function GET(
     }
 
     const messages = getMessagesForConversation(id);
-    return NextResponse.json({
-      success: true,
-      data: conversation,
-      messages
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: conversation,
+        messages
+      },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
   } catch (error) {
     console.error('Failed to get conversation:', error);
     return NextResponse.json(

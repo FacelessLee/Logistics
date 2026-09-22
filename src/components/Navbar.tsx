@@ -21,6 +21,8 @@ export default function Navbar() {
   const overlayRef = useRef<HTMLDivElement>(null);
   const linksRef = useRef<(HTMLAnchorElement | null)[]>([]);
 
+  const isOperationsShell = pathname.startsWith('/operations') || pathname.startsWith('/admin');
+
   // Track scroll position for header background
   useEffect(() => {
     const handleScroll = () => {
@@ -80,6 +82,8 @@ export default function Navbar() {
   const closeMenu = () => {
     setMenuOpen(false);
   };
+
+  if (isOperationsShell) return null;
 
   return (
     <>

@@ -19,7 +19,10 @@ export async function GET(req: NextRequest) {
     }
 
     const messages = getMessagesForConversation(conversationId);
-    return NextResponse.json({ success: true, data: messages });
+    return NextResponse.json(
+      { success: true, data: messages },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
   } catch (error) {
     console.error('Failed to get messages:', error);
     return NextResponse.json(

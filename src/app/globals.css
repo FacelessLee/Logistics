@@ -1446,6 +1446,64 @@ html, body {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.operations-header {
+  flex-shrink: 0;
+}
+
+@media (max-width: 1180px) {
+  .operations-header {
+    height: auto !important;
+    min-height: 70px;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 10px 18px !important;
+  }
+
+  .operations-header-primary,
+  .operations-header-actions {
+    min-width: 0;
+  }
+
+  .operations-header-primary {
+    flex: 1 1 620px;
+  }
+
+  .operations-header-actions {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 760px) {
+  .operations-header-primary {
+    flex-wrap: wrap;
+    gap: 12px !important;
+  }
+
+  .operations-header-primary > div:first-child {
+    flex: 1 1 100%;
+  }
+
+  .operations-header-primary > div:nth-child(2) {
+    display: none;
+  }
+
+  .operations-header-actions {
+    flex: 1 1 100%;
+    justify-content: space-between;
+    gap: 8px !important;
+  }
+
+  .operations-header-actions > div:first-child {
+    display: none !important;
+  }
+
+  .site-footer .container {
+    padding-top: 64px !important;
+    padding-bottom: 40px !important;
+  }
+}
+
 /* ═══════════════════════════════════════════════════
    HERO TRUCK SCENE & VEHICULAR BUTTON ANIMATIONS
    ═══════════════════════════════════════════════════ */
