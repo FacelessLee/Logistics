@@ -18,7 +18,8 @@ import {
   Calendar,
   AlertCircle,
   Mail,
-  Download
+  Download,
+  Send
 } from 'lucide-react';
 import { generateTrackingId } from '@/lib/utils';
 import { TransportMode, ServiceTier, Consignment } from '@/lib/types';
@@ -72,6 +73,15 @@ function BookingFormContent() {
   const [errorMessage, setErrorMessage] = useState('');
   const [showWaybill, setShowWaybill] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const [emailDispatchStatus, setEmailDispatchStatus] = useState<{
+    dispatched: boolean;
+    recipients: string[];
+    error?: string;
+  } | null>(null);
+  const [resendEmailAddress, setResendEmailAddress] = useState('');
+  const [isResending, setIsResending] = useState(false);
+  const [resendNotice, setResendNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleRegenerateId = () => {
     const prefix = transportMode === 'OCEAN_CARGO' ? 'SEA' :
@@ -132,6 +142,7 @@ function BookingFormContent() {
       const json = await res.json();
       if (json.success && json.data) {
         setCreatedConsignment(json.data);
+        setEmailDispatchStatus(json.email || null);
       } else {
         setErrorMessage(json.error || 'Failed to generate consignment');
       }
@@ -140,6 +151,28 @@ function BookingFormContent() {
       setErrorMessage(msg);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleManualResend = async (targetAddr?: string) => {
+    const addr = (targetAddr || resendEmailAddress).trim();
+    if (!addr || !createdConsignment) return;
+    setIsResending(true);
+    setResendNotice(null);
+    try {
+      const res = await fetch(`/api/consignments/${createdConsignment.trackingId}/email-report?email=${encodeURIComponent(addr)}`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResendNotice({ type: 'success', text: `Official Waybill PDF successfully dispatched to ${addr}!` });
+      } else {
+        setResendNotice({ type: 'error', text: data.error || 'Failed to dispatch email' });
+      }
+    } catch {
+      setResendNotice({ type: 'error', text: 'Network request failed' });
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -247,35 +280,109 @@ function BookingFormContent() {
 
             {/* Email Dispatch Notice */}
             <div style={{
-              background: 'rgba(2, 132, 199, 0.12)',
-              border: '1px solid rgba(2, 132, 199, 0.35)',
+              background: emailDispatchStatus?.error ? 'rgba(239, 68, 68, 0.12)' : 'rgba(2, 132, 199, 0.12)',
+              border: emailDispatchStatus?.error ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(2, 132, 199, 0.35)',
               borderRadius: 'var(--radius-md)',
-              padding: '16px 20px',
+              padding: '20px',
               textAlign: 'left',
-              marginBottom: '28px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '14px'
+              marginBottom: '28px'
             }}>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                background: 'rgba(2, 132, 199, 0.25)',
-                color: 'var(--accent-cyan-light)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }}>
-                <Mail size={20} />
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.92rem' }}>
-                  Confirmation & Official Waybill Email Dispatched
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
+                <div style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '50%',
+                  background: emailDispatchStatus?.error ? 'rgba(239, 68, 68, 0.25)' : 'rgba(2, 132, 199, 0.25)',
+                  color: emailDispatchStatus?.error ? 'var(--accent-rose)' : 'var(--accent-cyan-light)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  marginTop: '2px'
+                }}>
+                  <Mail size={22} />
                 </div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '2px', lineHeight: 1.4 }}>
-                  A confirmation message with full consignment timeline, location routing, order details, and an attached copy of the official Air Waybill (PDF) was sent to <strong>{createdConsignment.sender.email}</strong>.
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ fontWeight: 800, color: '#ffffff', fontSize: '1rem' }}>
+                      Official Waybill (PDF) & Confirmation Email
+                    </div>
+                    <span style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      padding: '4px 10px',
+                      borderRadius: '999px',
+                      background: emailDispatchStatus?.error ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                      color: emailDispatchStatus?.error ? '#fca5a5' : '#34d399',
+                      border: emailDispatchStatus?.error ? '1px solid #ef4444' : '1px solid #10b981'
+                    }}>
+                      {emailDispatchStatus?.error ? 'Dispatch Warning' : 'Resend Dispatched ✓'}
+                    </span>
+                  </div>
+
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.86rem', marginTop: '6px', lineHeight: 1.5 }}>
+                    Individual notifications with route telemetry and attached official Air Waybill (PDF) were issued to:
+                    <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f1f5f9', fontSize: '0.85rem' }}>
+                        <span style={{ color: 'var(--accent-cyan-light)', fontWeight: 700 }}>• Shipper:</span>
+                        <span>{createdConsignment.sender.email}</span>
+                        <span style={{ fontSize: '0.72rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>Dispatched</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f1f5f9', fontSize: '0.85rem' }}>
+                        <span style={{ color: 'var(--accent-cyan-light)', fontWeight: 700 }}>• Consignee:</span>
+                        <span>{createdConsignment.receiver.email}</span>
+                        <span style={{ fontSize: '0.72rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>Dispatched</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {emailDispatchStatus?.error && (
+                    <div style={{ marginTop: '10px', padding: '10px', background: 'rgba(239, 68, 68, 0.15)', borderRadius: '6px', color: '#fca5a5', fontSize: '0.82rem' }}>
+                      <strong>Resend Notice:</strong> {emailDispatchStatus.error}
+                    </div>
+                  )}
+
+                  {/* Manual Quick Send to Any Address */}
+                  <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600, marginBottom: '8px' }}>
+                      Want a copy sent to another mailbox or need to re-verify delivery?
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <input
+                        type="email"
+                        placeholder="Enter email (e.g. personal mailbox)"
+                        value={resendEmailAddress}
+                        onChange={(e) => setResendEmailAddress(e.target.value)}
+                        className="form-input"
+                        style={{ flex: 1, minWidth: '220px', padding: '8px 12px', fontSize: '0.85rem' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleManualResend()}
+                        disabled={isResending || !resendEmailAddress.trim()}
+                        className="btn btn-secondary btn-sm"
+                        style={{ whiteSpace: 'nowrap', padding: '8px 16px' }}
+                      >
+                        <Send size={14} />
+                        <span>{isResending ? 'Sending...' : 'Send Waybill Copy'}</span>
+                      </button>
+                    </div>
+
+                    {resendNotice && (
+                      <div style={{
+                        marginTop: '8px',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        color: resendNotice.type === 'success' ? '#34d399' : '#fca5a5'
+                      }}>
+                        {resendNotice.text}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ marginTop: '12px', fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic', lineHeight: 1.5 }}>
+                    💡 <strong>Delivery Note:</strong> Emails are sent from <strong>support@navithonlogistics.com</strong>. If the email doesn&apos;t appear in your Primary Inbox within 1–2 minutes, please inspect your <strong>Spam / Junk / Promotions</strong> folder.
+                  </div>
                 </div>
               </div>
             </div>

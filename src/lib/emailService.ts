@@ -33,7 +33,6 @@ function getOutboxLog(): EmailOutboxItem[] {
 export function logDispatchedEmail(item: EmailOutboxItem) {
   const log = getOutboxLog();
   log.unshift(item);
-  // Keep last 100 entries
   if (log.length > 100) {
     log.length = 100;
   }
@@ -58,74 +57,54 @@ function getSenderAddress(): string {
   return process.env.EMAIL_FROM?.trim() || 'Navithon Logistics <support@navithonlogistics.com>';
 }
 
+function getReplyToAddress(): string {
+  return 'support@navithonlogistics.com';
+}
+
 function getBaseUrl(): string {
   if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '');
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return 'https://navithonlogistics.com';
 }
 
-function extractRecipients(consignment: Consignment): string[] {
-  const recipients = new Set<string>();
-  const senderEmail = consignment.sender?.email?.trim().toLowerCase();
-  const receiverEmail = consignment.receiver?.email?.trim().toLowerCase();
-
-  const isValid = (email?: string) => Boolean(email && email.includes('@') && email.includes('.'));
-
-  if (isValid(senderEmail)) recipients.add(senderEmail!);
-  if (isValid(receiverEmail)) recipients.add(receiverEmail!);
-
-  return Array.from(recipients);
+function isValidEmail(email?: string): boolean {
+  return Boolean(email && email.trim().includes('@') && email.trim().includes('.'));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. NEW CONSIGNMENT CONFIRMATION EMAIL (WITH ATTACHED WAYBILL PDF)
+// HTML TEMPLATE BUILDER: CONFIRMATION EMAIL
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function sendNewConsignmentEmail(
+function buildConfirmationHtml(
   consignment: Consignment,
-  customRecipient?: string
-): Promise<{ success: boolean; resendId?: string; error?: string; recipients: string[] }> {
-  const recipients = customRecipient ? [customRecipient] : extractRecipients(consignment);
-
-  if (recipients.length === 0) {
-    const errorMsg = `No valid recipient email registered for consignment #${consignment.trackingId}.`;
-    console.warn(`[EmailService] ${errorMsg}`);
-    return { success: false, error: errorMsg, recipients: [] };
-  }
-
-  const baseUrl = getBaseUrl();
-  const trackingUrl = `${baseUrl}/track/${consignment.trackingId}`;
-  const pdfDownloadUrl = `${baseUrl}/api/consignments/${consignment.trackingId}/waybill-pdf`;
-
-  // Generate Official Air Waybill PDF
-  let pdfBuffer: Buffer;
-  try {
-    pdfBuffer = generateWaybillPdf(consignment);
-  } catch (pdfErr) {
-    console.error('[EmailService] Failed to generate waybill PDF:', pdfErr);
-    pdfBuffer = Buffer.from('Navithon Logistics Waybill');
-  }
-
-  const subject = `[Navithon Logistics] Consignment Registered & Waybill Issued - #${consignment.trackingId}`;
-
-  // Package dimensions string
+  recipientRole: 'SHIPPER' | 'CONSIGNEE' | 'GENERAL',
+  recipientName: string,
+  trackingUrl: string,
+  pdfDownloadUrl: string
+): string {
   const dims = consignment.packageDetails.dimensionsCm
     ? `${consignment.packageDetails.dimensionsCm.length} x ${consignment.packageDetails.dimensionsCm.width} x ${consignment.packageDetails.dimensionsCm.height} cm`
     : 'Standard dimensions';
 
-  // Handling flags
   const flags: string[] = [];
   if (consignment.packageDetails.isFragile) flags.push('⚠ Fragile Goods');
   if (consignment.packageDetails.temperatureControlled) flags.push('❄ Temperature Controlled');
   if (consignment.signatureRequired) flags.push('✍ Direct Signature Mandatory');
 
-  const html = `
+  const roleText =
+    recipientRole === 'SHIPPER'
+      ? 'You are registered as the <strong>Shipper / Origin Dispatcher</strong> for this shipment. Below is your official booking confirmation and cargo manifest.'
+      : recipientRole === 'CONSIGNEE'
+      ? `A new consignment from <strong>${consignment.sender.company || consignment.sender.name}</strong> is in transit and scheduled for delivery to your address.`
+      : 'Below are the particulars for your registered consignment.';
+
+  return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${subject}</title>
+  <title>Navithon Logistics Waybill & Consignment Notification</title>
   <style>
     body { margin:0; padding:0; background-color:#070d18; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#f1f5f9; }
     table { border-collapse:collapse; }
@@ -149,15 +128,18 @@ export async function sendNewConsignmentEmail(
   </style>
 </head>
 <body>
+  <!-- Hidden preheader for email preview in Gmail/Outlook/Apple Mail -->
+  <div style="display:none; max-height:0; overflow:hidden; font-size:1px; line-height:1px; color:#070d18;">
+    Official Consignment #${consignment.trackingId} Registered. Air Waybill PDF attached. Estimated delivery: ${formatDate(consignment.estimatedDelivery)}.
+  </div>
+
   <div style="padding:24px 12px;">
     <div class="wrapper">
-      <!-- Header -->
       <div class="header">
         <h1 class="logo">NAVITHON LOGISTICS</h1>
         <div class="subhead">Global Cargo Telemetry & Freight Forwarding</div>
       </div>
 
-      <!-- Main Body -->
       <div class="content">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
           <span class="badge">Booking Confirmed</span>
@@ -165,11 +147,11 @@ export async function sendNewConsignmentEmail(
         </div>
 
         <h2 style="font-size:20px; font-weight:800; margin:0 0 12px 0; color:#ffffff;">
-          Your Consignment is Registered
+          Consignment Registered & Waybill Issued
         </h2>
-        <p style="font-size:14px; color:#cbd5e1; line-height:1.5; margin:0 0 20px 0;">
-          Dear <strong>${consignment.sender.name}</strong> / <strong>${consignment.receiver.name}</strong>,<br>
-          We are pleased to inform you that your international shipping order has been officially processed and logged into the Navithon global dispatch network. An official Air Waybill (AWB) has been generated.
+        <p style="font-size:14px; color:#cbd5e1; line-height:1.5; margin:0 0 16px 0;">
+          Dear <strong>${recipientName}</strong>,<br>
+          ${roleText}
         </p>
 
         <!-- Tracking Banner -->
@@ -291,173 +273,32 @@ export async function sendNewConsignmentEmail(
       <div class="footer">
         <strong>NAVITHON LOGISTICS INTERNATIONAL OPERATIONS COMMAND</strong><br>
         24/7 Global Air & Ocean Freight Telemetry Center<br>
-        Inquiries: dispatch@navithonlogistics.com | Direct Support: +1 (800) 849-0129<br>
+        Inquiries: dispatch@navithonlogistics.com | Support: support@navithonlogistics.com<br>
         <span style="opacity:0.6; display:inline-block; margin-top:8px;">
-          This is an automated operational notification. The attached electronic Air Waybill constitutes an official cargo transport record.
+          This is an official transactional message regarding Consignment #${consignment.trackingId}. The attached PDF is a non-negotiable Air Waybill.
         </span>
       </div>
     </div>
   </div>
 </body>
 </html>
-`;
-
-  const text = `
-NAVITHON LOGISTICS INTERNATIONAL
-CONSIGNMENT REGISTRATION & AIR WAYBILL ISSUED
-=============================================================
-Tracking / Waybill ID: ${consignment.trackingId}
-Date Registered: ${formatDate(consignment.createdAt)}
-Estimated Delivery: ${formatDate(consignment.estimatedDelivery)}
-
-ORIGIN (SHIPPER):
-${consignment.sender.company || consignment.sender.name}
-${consignment.sender.address}, ${consignment.sender.city}, ${consignment.sender.country}
-Contact: ${consignment.sender.phone} | ${consignment.sender.email}
-
-DESTINATION (CONSIGNEE):
-${consignment.receiver.company || consignment.receiver.name}
-${consignment.receiver.address}, ${consignment.receiver.city}, ${consignment.receiver.country}
-Contact: ${consignment.receiver.phone} | ${consignment.receiver.email}
-
-CARGO SPECIFICATIONS:
-- Description: ${consignment.packageDetails.description} (Category: ${consignment.packageDetails.category})
-- Pieces: ${consignment.packageDetails.pieceCount} PKG
-- Gross Weight: ${consignment.packageDetails.weightKg} kg
-- Dimensions: ${dims}
-- Declared Value: ${formatCurrency(consignment.packageDetails.declaredValue?.amount, consignment.packageDetails.declaredValue?.currency)}
-- Carrier: ${consignment.carrier.name}
-- Service Tier: ${consignment.serviceTier.replace(/_/g, ' ')} (${consignment.transportMode.replace(/_/g, ' ')})
-
-DOCUMENT ATTACHMENT:
-The official IATA Air Waybill document (Waybill-${consignment.trackingId}.pdf) has been attached to this email.
-
-TRACK YOUR SHIPMENT LIVE:
-${trackingUrl}
-
-Navithon Global Dispatch Command: dispatch@navithonlogistics.com
-=============================================================
-`.trim();
-
-  const resend = getResendClient();
-
-  if (!resend) {
-    const warnMsg = 'RESEND_API_KEY is not configured. Emulating email dispatch.';
-    console.warn(`[EmailService] ${warnMsg}`);
-    logDispatchedEmail({
-      id: `mock-${Date.now()}`,
-      trackingId: consignment.trackingId,
-      type: 'CONSIGNMENT_CONFIRMATION',
-      to: recipients,
-      subject,
-      timestamp: new Date().toISOString(),
-      success: true,
-      hasAttachment: true,
-      previewHtml: html
-    });
-    return { success: true, recipients };
-  }
-
-  try {
-    const res = await resend.emails.send({
-      from: getSenderAddress(),
-      to: recipients,
-      subject,
-      html,
-      text,
-      attachments: [
-        {
-          filename: `Waybill-${consignment.trackingId}.pdf`,
-          content: pdfBuffer,
-        },
-      ],
-    });
-
-    if (res.error) {
-      console.error('[EmailService] Resend API returned error:', res.error);
-      logDispatchedEmail({
-        id: `err-${Date.now()}`,
-        trackingId: consignment.trackingId,
-        type: 'CONSIGNMENT_CONFIRMATION',
-        to: recipients,
-        subject,
-        timestamp: new Date().toISOString(),
-        success: false,
-        error: res.error.message,
-        hasAttachment: true,
-        previewHtml: html
-      });
-      return { success: false, error: res.error.message, recipients };
-    }
-
-    console.log(`[EmailService] Confirmation email sent via Resend: ID ${res.data?.id}`);
-    logDispatchedEmail({
-      id: res.data?.id || `sent-${Date.now()}`,
-      trackingId: consignment.trackingId,
-      type: 'CONSIGNMENT_CONFIRMATION',
-      to: recipients,
-      subject,
-      timestamp: new Date().toISOString(),
-      success: true,
-      resendId: res.data?.id,
-      hasAttachment: true,
-      previewHtml: html
-    });
-
-    return { success: true, resendId: res.data?.id, recipients };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Unknown Resend error';
-    console.error('[EmailService] Unexpected error sending email:', err);
-    logDispatchedEmail({
-      id: `exc-${Date.now()}`,
-      trackingId: consignment.trackingId,
-      type: 'CONSIGNMENT_CONFIRMATION',
-      to: recipients,
-      subject,
-      timestamp: new Date().toISOString(),
-      success: false,
-      error: msg,
-      hasAttachment: true,
-      previewHtml: html
-    });
-    return { success: false, error: msg, recipients };
-  }
+  `.trim();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. CONSIGNMENT STATUS REPORT / MILESTONE UPDATE EMAIL
+// HTML TEMPLATE BUILDER: STATUS REPORT EMAIL
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function sendStatusUpdateEmail(
+function buildStatusReportHtml(
   consignment: Consignment,
   checkpoint: Checkpoint,
-  customRecipient?: string
-): Promise<{ success: boolean; resendId?: string; error?: string; recipients: string[] }> {
-  const recipients = customRecipient ? [customRecipient] : extractRecipients(consignment);
-
-  if (recipients.length === 0) {
-    const errorMsg = `No valid recipient email registered for consignment #${consignment.trackingId}.`;
-    console.warn(`[EmailService] ${errorMsg}`);
-    return { success: false, error: errorMsg, recipients: [] };
-  }
-
-  const baseUrl = getBaseUrl();
-  const trackingUrl = `${baseUrl}/track/${consignment.trackingId}`;
-  const pdfDownloadUrl = `${baseUrl}/api/consignments/${consignment.trackingId}/waybill-pdf`;
-
-  // Generate Official Air Waybill PDF copy for attachment as requested
-  let pdfBuffer: Buffer;
-  try {
-    pdfBuffer = generateWaybillPdf(consignment);
-  } catch (pdfErr) {
-    console.error('[EmailService] Failed to generate waybill PDF for status update:', pdfErr);
-    pdfBuffer = Buffer.from('Navithon Logistics Waybill');
-  }
-
+  recipientName: string,
+  trackingUrl: string,
+  pdfDownloadUrl: string,
+  recipientRole?: 'SHIPPER' | 'CONSIGNEE' | 'GENERAL'
+): string {
   const statusLabel = getStatusLabel(checkpoint.status);
-  const subject = `[Navithon Update] #${consignment.trackingId}: ${checkpoint.title} (${statusLabel})`;
 
-  // Status-dependent theme colors
   const statusColors: Record<string, { bg: string; text: string; border: string }> = {
     DELIVERED: { bg: '#065f46', text: '#34d399', border: '#10b981' },
     OUT_FOR_DELIVERY: { bg: '#854d0e', text: '#fde047', border: '#eab308' },
@@ -468,7 +309,6 @@ export async function sendStatusUpdateEmail(
   };
   const theme = statusColors[checkpoint.status] || statusColors.DEFAULT;
 
-  // Shipment milestones progress indicator
   const stages = [
     { key: 'ORDER_CREATED', label: 'Registered' },
     { key: 'RECEIVED_AT_FACILITY', label: 'Facility' },
@@ -479,14 +319,15 @@ export async function sendStatusUpdateEmail(
   ];
 
   const currentIdx = stages.findIndex((s) => s.key === checkpoint.status);
+  const roleBadge = recipientRole === 'SHIPPER' ? ' (Shipper Copy)' : recipientRole === 'CONSIGNEE' ? ' (Consignee Notice)' : '';
 
-  const html = `
+  return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${subject}</title>
+  <title>Navithon Consignment Status Report: ${statusLabel}</title>
   <style>
     body { margin:0; padding:0; background-color:#070d18; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#f1f5f9; }
     table { border-collapse:collapse; }
@@ -503,9 +344,13 @@ export async function sendStatusUpdateEmail(
   </style>
 </head>
 <body>
+  <!-- Hidden preheader for email preview in Gmail/Outlook/Apple Mail -->
+  <div style="display:none; max-height:0; overflow:hidden; font-size:1px; line-height:1px; color:#070d18;">
+    Status Update: #${consignment.trackingId} is now ${statusLabel}. Recorded at ${checkpoint.location}.
+  </div>
+
   <div style="padding:24px 12px;">
     <div class="wrapper">
-      <!-- Header -->
       <div class="header">
         <h1 class="logo">NAVITHON LOGISTICS</h1>
         <div style="font-size:12px; color:#bae6fd; margin-top:4px; font-weight:600; text-transform:uppercase;">
@@ -513,7 +358,6 @@ export async function sendStatusUpdateEmail(
         </div>
       </div>
 
-      <!-- Main Body -->
       <div class="content">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
           <span class="status-badge">${statusLabel}</span>
@@ -524,7 +368,8 @@ export async function sendStatusUpdateEmail(
           ${checkpoint.title}
         </h2>
         <p style="font-size:14px; color:#cbd5e1; line-height:1.5; margin:0 0 16px 0;">
-          A real-time telemetry update has been recorded for your consignment by the Navithon Operations Dispatch Desk.
+          Dear <strong>${recipientName}</strong>${roleBadge},<br>
+          A real-time telemetry update has been recorded for Consignment <strong>#${consignment.trackingId}</strong>.
         </p>
 
         <!-- Milestone Card -->
@@ -621,17 +466,354 @@ export async function sendStatusUpdateEmail(
       <div class="footer">
         <strong>NAVITHON LOGISTICS INTERNATIONAL OPERATIONS COMMAND</strong><br>
         24/7 Global Air & Ocean Freight Telemetry Center<br>
-        Inquiries: dispatch@navithonlogistics.com | Direct Support: +1 (800) 849-0129
+        Inquiries: dispatch@navithonlogistics.com | Support: support@navithonlogistics.com
       </div>
     </div>
   </div>
 </body>
 </html>
-`;
+  `.trim();
+}
 
-  const text = `
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. NEW CONSIGNMENT CONFIRMATION EMAIL (WITH ATTACHED WAYBILL PDF)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function sendNewConsignmentEmail(
+  consignment: Consignment,
+  customRecipient?: string
+): Promise<{ success: boolean; resendId?: string; error?: string; recipients: string[] }> {
+  const baseUrl = getBaseUrl();
+  const trackingUrl = `${baseUrl}/track/${consignment.trackingId}`;
+  const pdfDownloadUrl = `${baseUrl}/api/consignments/${consignment.trackingId}/waybill-pdf`;
+
+  // Generate Official Air Waybill PDF
+  let pdfBuffer: Buffer;
+  try {
+    pdfBuffer = generateWaybillPdf(consignment);
+  } catch (pdfErr) {
+    console.error('[EmailService] Failed to generate waybill PDF:', pdfErr);
+    pdfBuffer = Buffer.from('Navithon Logistics Waybill');
+  }
+
+  // Base64 encoding for 100% robust cross-platform MIME attachments
+  const pdfBase64 = pdfBuffer.toString('base64');
+
+  const senderEmail = consignment.sender?.email?.trim().toLowerCase();
+  const receiverEmail = consignment.receiver?.email?.trim().toLowerCase();
+
+  // Build target recipients list with roles
+  interface SendTarget {
+    email: string;
+    name: string;
+    role: 'SHIPPER' | 'CONSIGNEE' | 'GENERAL';
+    subject: string;
+  }
+
+  const targets: SendTarget[] = [];
+
+  const isSameRecipient = Boolean(senderEmail && receiverEmail && senderEmail === receiverEmail);
+
+  if (customRecipient && isValidEmail(customRecipient)) {
+    targets.push({
+      email: customRecipient.trim().toLowerCase(),
+      name: consignment.sender.name || 'Valued Client',
+      role: 'GENERAL',
+      subject: `[Navithon Logistics] Consignment Registered & Waybill Issued - #${consignment.trackingId}`
+    });
+  } else {
+    if (isValidEmail(senderEmail)) {
+      targets.push({
+        email: senderEmail,
+        name: consignment.sender.name || 'Shipper',
+        role: 'SHIPPER',
+        subject: isSameRecipient
+          ? `[Navithon Logistics - Shipper Copy] Consignment Registered & Waybill Issued - #${consignment.trackingId}`
+          : `[Navithon Logistics] Consignment Registered & Waybill Issued - #${consignment.trackingId}`
+      });
+    }
+
+    if (isValidEmail(receiverEmail)) {
+      targets.push({
+        email: receiverEmail,
+        name: consignment.receiver.name || 'Consignee',
+        role: 'CONSIGNEE',
+        subject: isSameRecipient
+          ? `[Navithon Logistics - Consignee Notice] Incoming Shipment Dispatched & Waybill - #${consignment.trackingId}`
+          : `[Navithon Logistics] Incoming Consignment Dispatched & Waybill - #${consignment.trackingId}`
+      });
+    }
+  }
+
+  if (targets.length === 0) {
+    const errorMsg = `No valid recipient email registered for consignment #${consignment.trackingId}.`;
+    console.warn(`[EmailService] ${errorMsg}`);
+    return { success: false, error: errorMsg, recipients: [] };
+  }
+
+  const resend = getResendClient();
+
+  if (!resend) {
+    const warnMsg = 'RESEND_API_KEY is not configured. Emulating email dispatch.';
+    console.warn(`[EmailService] ${warnMsg}`);
+    targets.forEach((t) => {
+      logDispatchedEmail({
+        id: `mock-${Date.now()}-${t.role}`,
+        trackingId: consignment.trackingId,
+        type: 'CONSIGNMENT_CONFIRMATION',
+        to: [t.email],
+        subject: t.subject,
+        timestamp: new Date().toISOString(),
+        success: true,
+        hasAttachment: true
+      });
+    });
+    return { success: true, recipients: targets.map((t) => t.email) };
+  }
+
+  const dispatchedRecipients: string[] = [];
+  let lastResendId: string | undefined;
+  let lastError: string | undefined;
+
+  // Send individual personalized emails to each party for maximum deliverability & inbox placement
+  for (let i = 0; i < targets.length; i++) {
+    const target = targets[i];
+    if (i > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+
+    const html = buildConfirmationHtml(
+      consignment,
+      target.role,
+      target.name,
+      trackingUrl,
+      pdfDownloadUrl
+    );
+
+    const text = `
+NAVITHON LOGISTICS INTERNATIONAL
+CONSIGNMENT REGISTRATION & AIR WAYBILL ISSUED
+=============================================================
+Recipient: ${target.name} (${target.role})
+Tracking / Waybill ID: ${consignment.trackingId}
+Date Registered: ${formatDate(consignment.createdAt)}
+Estimated Delivery: ${formatDate(consignment.estimatedDelivery)}
+
+ORIGIN (SHIPPER):
+${consignment.sender.company || consignment.sender.name}
+${consignment.sender.address}, ${consignment.sender.city}, ${consignment.sender.country}
+
+DESTINATION (CONSIGNEE):
+${consignment.receiver.company || consignment.receiver.name}
+${consignment.receiver.address}, ${consignment.receiver.city}, ${consignment.receiver.country}
+
+CARGO: ${consignment.packageDetails.description} (${consignment.packageDetails.pieceCount} pcs, ${consignment.packageDetails.weightKg} kg)
+
+DOCUMENT ATTACHMENT:
+The official IATA Air Waybill document (Waybill-${consignment.trackingId}.pdf) has been attached to this email.
+
+TRACK YOUR SHIPMENT LIVE:
+${trackingUrl}
+=============================================================
+    `.trim();
+
+    try {
+      const res = await resend.emails.send({
+        from: getSenderAddress(),
+        replyTo: getReplyToAddress(),
+        to: [target.email],
+        subject: target.subject,
+        headers: {
+          'X-Entity-Ref-ID': consignment.trackingId
+        },
+        html,
+        text,
+        attachments: [
+          {
+            filename: `Waybill-${consignment.trackingId}.pdf`,
+            content: pdfBase64,
+            contentType: 'application/pdf'
+          }
+        ]
+      });
+
+      if (res.error) {
+        console.error(`[EmailService] Resend API error for ${target.email}:`, res.error);
+        lastError = res.error.message;
+        logDispatchedEmail({
+          id: `err-${Date.now()}`,
+          trackingId: consignment.trackingId,
+          type: 'CONSIGNMENT_CONFIRMATION',
+          to: [target.email],
+          subject: target.subject,
+          timestamp: new Date().toISOString(),
+          success: false,
+          error: res.error.message,
+          hasAttachment: true,
+          previewHtml: html
+        });
+      } else {
+        console.log(`[EmailService] Email sent to ${target.email} via Resend: ID ${res.data?.id}`);
+        dispatchedRecipients.push(target.email);
+        lastResendId = res.data?.id;
+        logDispatchedEmail({
+          id: res.data?.id || `sent-${Date.now()}`,
+          trackingId: consignment.trackingId,
+          type: 'CONSIGNMENT_CONFIRMATION',
+          to: [target.email],
+          subject: target.subject,
+          timestamp: new Date().toISOString(),
+          success: true,
+          resendId: res.data?.id,
+          hasAttachment: true,
+          previewHtml: html
+        });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown Resend error';
+      console.error(`[EmailService] Unexpected error sending email to ${target.email}:`, err);
+      lastError = msg;
+      logDispatchedEmail({
+        id: `exc-${Date.now()}`,
+        trackingId: consignment.trackingId,
+        type: 'CONSIGNMENT_CONFIRMATION',
+        to: [target.email],
+        subject: target.subject,
+        timestamp: new Date().toISOString(),
+        success: false,
+        error: msg,
+        hasAttachment: true,
+        previewHtml: html
+      });
+    }
+  }
+
+  const isSuccess = dispatchedRecipients.length > 0;
+  return {
+    success: isSuccess,
+    resendId: lastResendId,
+    error: isSuccess ? undefined : lastError,
+    recipients: dispatchedRecipients
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. CONSIGNMENT STATUS REPORT / MILESTONE UPDATE EMAIL
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function sendStatusUpdateEmail(
+  consignment: Consignment,
+  checkpoint: Checkpoint,
+  customRecipient?: string
+): Promise<{ success: boolean; resendId?: string; error?: string; recipients: string[] }> {
+  const baseUrl = getBaseUrl();
+  const trackingUrl = `${baseUrl}/track/${consignment.trackingId}`;
+  const pdfDownloadUrl = `${baseUrl}/api/consignments/${consignment.trackingId}/waybill-pdf`;
+
+  let pdfBuffer: Buffer;
+  try {
+    pdfBuffer = generateWaybillPdf(consignment);
+  } catch (pdfErr) {
+    console.error('[EmailService] Failed to generate waybill PDF for status update:', pdfErr);
+    pdfBuffer = Buffer.from('Navithon Logistics Waybill');
+  }
+
+  const pdfBase64 = pdfBuffer.toString('base64');
+  const statusLabel = getStatusLabel(checkpoint.status);
+  const subject = `[Navithon Update] #${consignment.trackingId}: ${checkpoint.title} (${statusLabel})`;
+
+  const senderEmail = consignment.sender?.email?.trim().toLowerCase();
+  const receiverEmail = consignment.receiver?.email?.trim().toLowerCase();
+
+  const isSameRecipient = Boolean(senderEmail && receiverEmail && senderEmail === receiverEmail);
+
+  interface SendTarget {
+    email: string;
+    name: string;
+    role: 'SHIPPER' | 'CONSIGNEE' | 'GENERAL';
+    subject: string;
+  }
+
+  const targets: SendTarget[] = [];
+  if (customRecipient && isValidEmail(customRecipient)) {
+    targets.push({
+      email: customRecipient.trim().toLowerCase(),
+      name: 'Valued Client',
+      role: 'GENERAL',
+      subject: `[Navithon Update] #${consignment.trackingId}: ${checkpoint.title} (${statusLabel})`
+    });
+  } else {
+    if (isValidEmail(senderEmail)) {
+      targets.push({
+        email: senderEmail,
+        name: consignment.sender.name || 'Shipper',
+        role: 'SHIPPER',
+        subject: isSameRecipient
+          ? `[Navithon Update - Shipper] #${consignment.trackingId}: ${checkpoint.title} (${statusLabel})`
+          : `[Navithon Update] #${consignment.trackingId}: ${checkpoint.title} (${statusLabel})`
+      });
+    }
+    if (isValidEmail(receiverEmail)) {
+      targets.push({
+        email: receiverEmail,
+        name: consignment.receiver.name || 'Consignee',
+        role: 'CONSIGNEE',
+        subject: isSameRecipient
+          ? `[Navithon Update - Consignee] #${consignment.trackingId}: ${checkpoint.title} (${statusLabel})`
+          : `[Navithon Update] #${consignment.trackingId}: ${checkpoint.title} (${statusLabel})`
+      });
+    }
+  }
+
+  if (targets.length === 0) {
+    const errorMsg = `No valid recipient email registered for consignment #${consignment.trackingId}.`;
+    console.warn(`[EmailService] ${errorMsg}`);
+    return { success: false, error: errorMsg, recipients: [] };
+  }
+
+  const resend = getResendClient();
+
+  if (!resend) {
+    const warnMsg = 'RESEND_API_KEY is not configured. Emulating status email dispatch.';
+    console.warn(`[EmailService] ${warnMsg}`);
+    targets.forEach((t) => {
+      logDispatchedEmail({
+        id: `mock-${Date.now()}-status`,
+        trackingId: consignment.trackingId,
+        type: 'STATUS_UPDATE',
+        to: [t.email],
+        subject,
+        timestamp: new Date().toISOString(),
+        success: true,
+        hasAttachment: true
+      });
+    });
+    return { success: true, recipients: targets.map((t) => t.email) };
+  }
+
+  const dispatchedRecipients: string[] = [];
+  let lastResendId: string | undefined;
+  let lastError: string | undefined;
+
+  for (let i = 0; i < targets.length; i++) {
+    const target = targets[i];
+    if (i > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+
+    const html = buildStatusReportHtml(
+      consignment,
+      checkpoint,
+      target.name,
+      trackingUrl,
+      pdfDownloadUrl,
+      target.role
+    );
+
+    const text = `
 NAVITHON LOGISTICS STATUS REPORT
 =============================================================
+Recipient: ${target.name} (${target.role})
 Consignment Tracking ID: ${consignment.trackingId}
 Status Update: ${statusLabel}
 Event Title: ${checkpoint.title}
@@ -652,89 +834,84 @@ A copy of your official Air Waybill (Waybill-${consignment.trackingId}.pdf) has 
 TRACK LIVE TELEMETRY:
 ${trackingUrl}
 =============================================================
-`.trim();
+    `.trim();
 
-  const resend = getResendClient();
-
-  if (!resend) {
-    const warnMsg = 'RESEND_API_KEY is not configured. Emulating status email dispatch.';
-    console.warn(`[EmailService] ${warnMsg}`);
-    logDispatchedEmail({
-      id: `mock-${Date.now()}`,
-      trackingId: consignment.trackingId,
-      type: 'STATUS_UPDATE',
-      to: recipients,
-      subject,
-      timestamp: new Date().toISOString(),
-      success: true,
-      hasAttachment: true,
-      previewHtml: html
-    });
-    return { success: true, recipients };
-  }
-
-  try {
-    const res = await resend.emails.send({
-      from: getSenderAddress(),
-      to: recipients,
-      subject,
-      html,
-      text,
-      attachments: [
-        {
-          filename: `Waybill-${consignment.trackingId}.pdf`,
-          content: pdfBuffer,
+    try {
+      const res = await resend.emails.send({
+        from: getSenderAddress(),
+        replyTo: getReplyToAddress(),
+        to: [target.email],
+        subject: target.subject,
+        headers: {
+          'X-Entity-Ref-ID': consignment.trackingId
         },
-      ],
-    });
+        html,
+        text,
+        attachments: [
+          {
+            filename: `Waybill-${consignment.trackingId}.pdf`,
+            content: pdfBase64,
+            contentType: 'application/pdf'
+          }
+        ]
+      });
 
-    if (res.error) {
-      console.error('[EmailService] Resend API error for status update:', res.error);
+      if (res.error) {
+        console.error(`[EmailService] Resend API error for ${target.email}:`, res.error);
+        lastError = res.error.message;
+        logDispatchedEmail({
+          id: `err-${Date.now()}`,
+          trackingId: consignment.trackingId,
+          type: 'STATUS_UPDATE',
+          to: [target.email],
+          subject: target.subject,
+          timestamp: new Date().toISOString(),
+          success: false,
+          error: res.error.message,
+          hasAttachment: true,
+          previewHtml: html
+        });
+      } else {
+        console.log(`[EmailService] Status email sent to ${target.email} via Resend: ID ${res.data?.id}`);
+        dispatchedRecipients.push(target.email);
+        lastResendId = res.data?.id;
+        logDispatchedEmail({
+          id: res.data?.id || `sent-${Date.now()}`,
+          trackingId: consignment.trackingId,
+          type: 'STATUS_UPDATE',
+          to: [target.email],
+          subject: target.subject,
+          timestamp: new Date().toISOString(),
+          success: true,
+          resendId: res.data?.id,
+          hasAttachment: true,
+          previewHtml: html
+        });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown Resend error';
+      console.error(`[EmailService] Unexpected error sending status email to ${target.email}:`, err);
+      lastError = msg;
       logDispatchedEmail({
-        id: `err-${Date.now()}`,
+        id: `exc-${Date.now()}`,
         trackingId: consignment.trackingId,
         type: 'STATUS_UPDATE',
-        to: recipients,
+        to: [target.email],
         subject,
         timestamp: new Date().toISOString(),
         success: false,
-        error: res.error.message,
+        error: msg,
         hasAttachment: true,
         previewHtml: html
       });
-      return { success: false, error: res.error.message, recipients };
     }
-
-    console.log(`[EmailService] Status report email sent via Resend: ID ${res.data?.id}`);
-    logDispatchedEmail({
-      id: res.data?.id || `sent-${Date.now()}`,
-      trackingId: consignment.trackingId,
-      type: 'STATUS_UPDATE',
-      to: recipients,
-      subject,
-      timestamp: new Date().toISOString(),
-      success: true,
-      resendId: res.data?.id,
-      hasAttachment: true,
-      previewHtml: html
-    });
-
-    return { success: true, resendId: res.data?.id, recipients };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Unknown Resend error';
-    console.error('[EmailService] Unexpected error sending status email:', err);
-    logDispatchedEmail({
-      id: `exc-${Date.now()}`,
-      trackingId: consignment.trackingId,
-      type: 'STATUS_UPDATE',
-      to: recipients,
-      subject,
-      timestamp: new Date().toISOString(),
-      success: false,
-      error: msg,
-      hasAttachment: true,
-      previewHtml: html
-    });
-    return { success: false, error: msg, recipients };
   }
+
+  const isSuccess = dispatchedRecipients.length > 0;
+  return {
+    success: isSuccess,
+    resendId: lastResendId,
+    error: isSuccess ? undefined : lastError,
+    recipients: dispatchedRecipients
+  };
 }

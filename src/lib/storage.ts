@@ -1,5 +1,20 @@
 import { Consignment, Checkpoint, ShipmentStatus } from './types';
 import { INITIAL_CONSIGNMENTS } from '../data/initialConsignments';
+import { getDatabase, isMongoConfigured } from './mongodb';
+
+async function syncToMongo(consignment: Consignment) {
+  if (!isMongoConfigured()) return;
+  try {
+    const db = await getDatabase();
+    await db.collection('consignments').updateOne(
+      { trackingId: consignment.trackingId },
+      { $set: consignment },
+      { upsert: true }
+    );
+  } catch (err) {
+    console.error('[Storage] MongoDB sync error:', err);
+  }
+}
 
 // Global singleton across serverless invocations / dev reload
 declare global {
@@ -11,6 +26,36 @@ function getStore(): Consignment[] {
   if (!globalThis.__CONSIGNMENTS_STORE__) {
     // Clone initial consignments
     globalThis.__CONSIGNMENTS_STORE__ = JSON.parse(JSON.stringify(INITIAL_CONSIGNMENTS));
+
+    // Asynchronously hydrate from MongoDB if available
+    if (isMongoConfigured()) {
+      getDatabase()
+        .then(async (db) => {
+          try {
+            const count = await db.collection('consignments').countDocuments();
+            if (count === 0) {
+              await db.collection('consignments').insertMany(INITIAL_CONSIGNMENTS);
+            } else {
+              const docs = await db.collection<Consignment>('consignments').find().toArray();
+              if (docs && docs.length > 0 && globalThis.__CONSIGNMENTS_STORE__) {
+                docs.forEach((doc) => {
+                  const idx = globalThis.__CONSIGNMENTS_STORE__!.findIndex(
+                    (c) => c.trackingId.toUpperCase() === doc.trackingId.toUpperCase()
+                  );
+                  if (idx === -1) {
+                    globalThis.__CONSIGNMENTS_STORE__!.unshift(doc);
+                  } else {
+                    globalThis.__CONSIGNMENTS_STORE__![idx] = doc;
+                  }
+                });
+              }
+            }
+          } catch (err) {
+            console.error('[Storage] MongoDB hydration error:', err);
+          }
+        })
+        .catch(() => {});
+    }
   }
   return globalThis.__CONSIGNMENTS_STORE__!;
 }
@@ -27,11 +72,15 @@ export function getConsignmentById(id: string): Consignment | undefined {
 
 export function addConsignment(newConsignment: Consignment): Consignment {
   const store = getStore();
-  const existing = store.find((c) => c.trackingId.toUpperCase() === newConsignment.trackingId.toUpperCase());
+  let candidateId = newConsignment.trackingId.trim().toUpperCase();
+  const existing = store.find((c) => c.trackingId.toUpperCase() === candidateId);
   if (existing) {
-    throw new Error(`Consignment with ID ${newConsignment.trackingId} already exists`);
+    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    candidateId = `${candidateId}-${randomSuffix}`;
+    newConsignment.trackingId = candidateId;
   }
   store.unshift(newConsignment);
+  syncToMongo(newConsignment);
   return newConsignment;
 }
 
@@ -48,6 +97,7 @@ export function updateConsignment(
     ...store[index],
     ...updates
   };
+  syncToMongo(store[index]);
   return store[index];
 }
 
@@ -84,6 +134,7 @@ export function addCheckpointToConsignment(
     consignment.actualDelivery = new Date().toISOString();
   }
 
+  syncToMongo(consignment);
   return consignment;
 }
 
