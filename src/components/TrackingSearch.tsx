@@ -76,7 +76,7 @@ export default function TrackingSearch({
             setTrackingInput(e.target.value.toUpperCase());
             if (errorMessage) setErrorMessage('');
           }}
-          placeholder="Enter Consignment ID (e.g. TRK-2026-89420)"
+          placeholder="Enter Consignment or Waybill ID (e.g. TRK-...)"
           autoFocus={autoFocus}
           style={{
             flex: 1,

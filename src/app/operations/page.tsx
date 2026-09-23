@@ -375,20 +375,12 @@ export default function OperationsPortalPage() {
     }
   };
 
-  // ── Reset Chat Seed Data ──
-  const handleResetChatStore = async () => {
-    if (!confirm('Restore default operations CRM demo conversations and inquiries?')) return;
+  // ── Refresh Live Operations Data ──
+  const handleRefreshAll = async () => {
     try {
-      const res = await fetch('/api/chat/reset', { method: 'POST' });
-      const json = await res.json();
-      if (json.success) {
-        setConversations(json.data);
-        if (json.data.length > 0) {
-          setSelectedConvId(json.data[0].id);
-        }
-      }
+      await Promise.allSettled([fetchConversations(), fetchConsignments()]);
     } catch (err) {
-      console.error('Failed to reset chat store:', err);
+      console.error('Failed to refresh operations data:', err);
     }
   };
 
@@ -744,10 +736,10 @@ export default function OperationsPortalPage() {
             <span>{soundEnabled ? 'ALERTS ON' : 'MUTED'}</span>
           </button>
 
-          {/* Reset Demo Data */}
+          {/* Refresh Operations Data */}
           <button
-            onClick={handleResetChatStore}
-            title="Restore sample demonstration chats"
+            onClick={handleRefreshAll}
+            title="Refresh active inquiries and consignments"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -766,7 +758,7 @@ export default function OperationsPortalPage() {
             onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
           >
             <RotateCcw size={14} />
-            <span>RESET DEMO</span>
+            <span>REFRESH</span>
           </button>
 
           {/* Agent Badge */}
@@ -1889,8 +1881,8 @@ export default function OperationsPortalPage() {
                 </tr>
               </thead>
               <tbody>
-                {consignments
-                  .filter((c) => {
+                {(() => {
+                  const filtered = consignments.filter((c) => {
                     if (consignmentStatusFilter !== 'ALL' && c.status !== consignmentStatusFilter) return false;
                     if (consignmentSearch.trim()) {
                       const q = consignmentSearch.toLowerCase();
@@ -1900,8 +1892,26 @@ export default function OperationsPortalPage() {
                       return matchesId || matchesOrigin || matchesDest;
                     }
                     return true;
-                  })
-                  .map((c) => {
+                  });
+
+                  if (filtered.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={6} style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                            <Package size={32} strokeWidth={1.5} color="var(--text-muted)" />
+                            <span style={{ fontSize: '0.9rem' }}>No freight consignments recorded yet.</span>
+                            <Link href="/book" className="btn btn-primary btn-sm" style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              <PlusCircle size={14} />
+                              <span>Register New Consignment</span>
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return filtered.map((c) => {
                     const statusColor = getStatusColor(c.status);
                     return (
                     <tr
@@ -2038,7 +2048,8 @@ export default function OperationsPortalPage() {
                       </td>
                     </tr>
                     );
-                  })}
+                  });
+                })()}
               </tbody>
             </table>
           </div>

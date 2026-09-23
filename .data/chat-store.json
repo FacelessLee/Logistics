@@ -1,246 +1,42 @@
 {
   "conversations": [
     {
-      "id": "conv-1790073016287-931",
-      "visitorId": "vis-mucj9748-670i",
-      "visitorName": "Visitor #670I",
-      "visitorLocation": "Website visitor",
-      "currentPage": "/track",
-      "status": "ACTIVE",
-      "unreadCountAgent": 0,
-      "unreadCountVisitor": 0,
-      "createdAt": "2026-09-22T10:30:16.287Z",
-      "updatedAt": "2026-09-22T10:30:16.287Z",
-      "lastMessageText": "Welcome to Navithon Operations! A dedicated logistics dispatcher is available. How may we assist your freight shipment?",
-      "lastMessageTimestamp": "2026-09-22T10:30:16.287Z",
-      "assignedAgent": "David M. (Operations)"
-    },
-    {
-      "id": "conv-1790025002415-355",
-      "visitorId": "vis-mubqo2o6-pedl",
-      "visitorName": "Visitor #PEDL",
-      "visitorLocation": "Active Visitor Session",
-      "currentPage": "/track",
-      "status": "ACTIVE",
-      "unreadCountAgent": 0,
-      "unreadCountVisitor": 1,
-      "createdAt": "2026-09-21T21:10:02.416Z",
-      "updatedAt": "2026-09-21T21:12:02.121Z",
-      "lastMessageText": "Consignment TRK-2026-89420 (Tokyo (HND), Japan → New York (JFK), United States) is currently In Transit at Anchorage Air Cargo Transshipment Hub (ANC), AK. Expected delivery: 18/09/2026.",
-      "lastMessageTimestamp": "2026-09-21T21:12:02.121Z",
-      "assignedAgent": "David M. (Operations)"
-    },
-    {
-      "id": "conv-rotterdam-01",
-      "visitorId": "vis-rotterdam-891",
-      "visitorName": "Marc Van Der Berg",
-      "visitorEmail": "m.vanderberg@vandenberg-machinery.nl",
-      "visitorCompany": "Van Den Berg Heavy Machinery B.V.",
-      "visitorLocation": "Rotterdam, Netherlands",
-      "currentPage": "/track?id=NVT-882194",
+      "id": "conv-1790180093370-89",
+      "visitorId": "vis-idempotency-test-01",
+      "visitorName": "Carlos Mendez",
+      "visitorEmail": "carlos@mendezlogistics.es",
+      "visitorCompany": "Mendez Transportes SL",
+      "visitorLocation": "Madrid, Spain",
+      "currentPage": "/book",
       "status": "ACTIVE",
       "unreadCountAgent": 1,
-      "unreadCountVisitor": 0,
-      "createdAt": "2026-09-21T20:28:02.358Z",
-      "updatedAt": "2026-09-21T21:06:02.358Z",
-      "lastMessageText": "Can you verify if our hydraulic crane units have cleared terminal customs at Rotterdam Port?",
-      "lastMessageTimestamp": "2026-09-21T21:06:02.358Z",
-      "assignedAgent": "David M. (Operations)",
-      "internalNotes": "Client has 4x 40ft High Cube containers on Vessel CMA CGM Palais. Consignment NVT-882194.",
-      "linkedTrackingId": "NVT-882194"
-    },
-    {
-      "id": "conv-singapore-02",
-      "visitorId": "vis-singapore-442",
-      "visitorName": "Elena Rostova",
-      "visitorEmail": "elena.rostova@aerotech-global.sg",
-      "visitorCompany": "AeroTech Propulsion Systems",
-      "visitorLocation": "Singapore (Changi Logistics Park)",
-      "currentPage": "/book",
-      "status": "PENDING",
-      "unreadCountAgent": 0,
-      "unreadCountVisitor": 0,
-      "createdAt": "2026-09-21T19:00:02.358Z",
-      "updatedAt": "2026-09-21T20:52:02.358Z",
-      "lastMessageText": "Understood. We are preparing the hazardous material lithium battery declaration sheets for the flight.",
-      "lastMessageTimestamp": "2026-09-21T20:52:02.358Z",
-      "assignedAgent": "David M. (Operations)",
-      "internalNotes": "Dangerous Goods Class 9 freight scheduled for Frankfurt charter on Thursday.",
-      "linkedTrackingId": "NVT-904312"
-    },
-    {
-      "id": "conv-hamburg-03",
-      "visitorId": "vis-hamburg-118",
-      "visitorName": "Klaus Lindner",
-      "visitorEmail": "k.lindner@hamburg-pharma.de",
-      "visitorCompany": "Hanseatic Cold-Chain Pharma",
-      "visitorLocation": "Hamburg, Germany",
-      "currentPage": "/",
-      "status": "RESOLVED",
-      "unreadCountAgent": 0,
-      "unreadCountVisitor": 0,
-      "createdAt": "2026-09-21T15:10:02.358Z",
-      "updatedAt": "2026-09-21T19:10:02.358Z",
-      "lastMessageText": "Thank you David, electronic Proof of Delivery (e-POD) received with cold-chain sensor log verified.",
-      "lastMessageTimestamp": "2026-09-21T19:10:02.358Z",
-      "assignedAgent": "David M. (Operations)",
-      "internalNotes": "Pharma shipment verified at 2°C - 8°C range. Delivered and signed.",
-      "linkedTrackingId": "NVT-551980"
+      "unreadCountVisitor": 1,
+      "createdAt": "2026-09-23T16:14:53.370Z",
+      "updatedAt": "2026-09-23T16:14:53.373Z",
+      "lastMessageText": "Hello dispatcher, confirming temperature logging for shipment TRK-VERIFY-99881.",
+      "lastMessageTimestamp": "2026-09-23T16:14:53.373Z",
+      "assignedAgent": "David M. (Operations)"
     }
   ],
   "messages": {
-    "conv-rotterdam-01": [
+    "conv-1790180093370-89": [
       {
-        "id": "msg-r-1",
-        "conversationId": "conv-rotterdam-01",
-        "sender": "visitor",
-        "senderName": "Marc Van Der Berg",
-        "text": "Good afternoon. I am checking on the ETA for our machinery shipment NVT-882194 into Rotterdam.",
-        "timestamp": "2026-09-21T20:30:02.358Z",
-        "read": true
-      },
-      {
-        "id": "msg-r-2",
-        "conversationId": "conv-rotterdam-01",
-        "sender": "agent",
-        "senderName": "David M. (Operations)",
-        "text": "Hello Marc! Welcome to Navithon Operations. Let me cross-reference the vessel AIS telemetry and port customs status for NVT-882194.",
-        "timestamp": "2026-09-21T20:34:02.358Z",
-        "read": true
-      },
-      {
-        "id": "msg-r-3",
-        "conversationId": "conv-rotterdam-01",
-        "sender": "agent",
-        "senderName": "David M. (Operations)",
-        "text": "Vessel docked at Maasvlakte II terminal at 06:40 CET. Discharge began on schedule.",
-        "timestamp": "2026-09-21T20:35:02.358Z",
-        "read": true
-      },
-      {
-        "id": "msg-r-4",
-        "conversationId": "conv-rotterdam-01",
-        "sender": "visitor",
-        "senderName": "Marc Van Der Berg",
-        "text": "Can you verify if our hydraulic crane units have cleared terminal customs at Rotterdam Port?",
-        "timestamp": "2026-09-21T21:06:02.358Z",
-        "read": false
-      }
-    ],
-    "conv-singapore-02": [
-      {
-        "id": "msg-s-1",
-        "conversationId": "conv-singapore-02",
-        "sender": "visitor",
-        "senderName": "Elena Rostova",
-        "text": "Hi David, we need urgent charter space from Singapore to Frankfurt for avionics replacement assemblies.",
-        "timestamp": "2026-09-21T19:05:02.358Z",
-        "read": true
-      },
-      {
-        "id": "msg-s-2",
-        "conversationId": "conv-singapore-02",
-        "sender": "agent",
-        "senderName": "David M. (Operations)",
-        "text": "Understood Elena. We have priority allocation on Lufthansa Cargo flight LH8411 departing SIN at 23:15 tomorrow. Will you require temperature-controlled loading or standard main deck?",
-        "timestamp": "2026-09-21T19:20:02.358Z",
-        "read": true
-      },
-      {
-        "id": "msg-s-3",
-        "conversationId": "conv-singapore-02",
-        "sender": "visitor",
-        "senderName": "Elena Rostova",
-        "text": "Understood. We are preparing the hazardous material lithium battery declaration sheets for the flight.",
-        "timestamp": "2026-09-21T20:52:02.358Z",
-        "read": true
-      }
-    ],
-    "conv-hamburg-03": [
-      {
-        "id": "msg-h-1",
-        "conversationId": "conv-hamburg-03",
-        "sender": "visitor",
-        "senderName": "Klaus Lindner",
-        "text": "Hello, inquiring about release of temperature log for Pharma batch NVT-551980.",
-        "timestamp": "2026-09-21T15:20:02.358Z",
-        "read": true
-      },
-      {
-        "id": "msg-h-2",
-        "conversationId": "conv-hamburg-03",
-        "sender": "agent",
-        "senderName": "David M. (Operations)",
-        "text": "Hi Klaus, data logger report uploaded to the consignment file. Datalogger ID #TC-881 showed nominal +4.2°C throughout transport.",
-        "timestamp": "2026-09-21T16:10:02.358Z",
-        "read": true
-      },
-      {
-        "id": "msg-h-3",
-        "conversationId": "conv-hamburg-03",
-        "sender": "visitor",
-        "senderName": "Klaus Lindner",
-        "text": "Thank you David, electronic Proof of Delivery (e-POD) received with cold-chain sensor log verified.",
-        "timestamp": "2026-09-21T19:10:02.358Z",
-        "read": true
-      }
-    ],
-    "conv-1790025002415-355": [
-      {
-        "id": "msg-1790025002416-672",
-        "conversationId": "conv-1790025002415-355",
+        "id": "msg-1790180093370-355",
+        "conversationId": "conv-1790180093370-89",
         "sender": "agent",
         "senderName": "David M. (Operations)",
         "text": "Welcome to Navithon Operations! A dedicated logistics dispatcher is available. How may we assist your freight shipment?",
-        "timestamp": "2026-09-21T21:10:02.416Z",
-        "read": true
-      },
-      {
-        "id": "msg-1790025020430-8899",
-        "conversationId": "conv-1790025002415-355",
-        "sender": "visitor",
-        "senderName": "Visitor #PEDL",
-        "text": "📦 Track my consignment",
-        "timestamp": "2026-09-21T21:10:20.430Z",
-        "read": true
-      },
-      {
-        "id": "msg-1790025048048-9133",
-        "conversationId": "conv-1790025002415-355",
-        "sender": "agent",
-        "senderName": "David M. (Operations)",
-        "text": "Could you please provide your 10-digit Master Air Waybill (MAWB) or Navithon Tracking Code (e.g., NVT-882194)? I will pull up live satellite telemetry immediately.",
-        "timestamp": "2026-09-21T21:10:48.047Z",
-        "read": true
-      },
-      {
-        "id": "msg-1790025090262-8893",
-        "conversationId": "conv-1790025002415-355",
-        "sender": "visitor",
-        "senderName": "Visitor #PEDL",
-        "text": "TRK-2026-89420",
-        "timestamp": "2026-09-21T21:11:30.262Z",
-        "read": true
-      },
-      {
-        "id": "msg-1790025122121-3883",
-        "conversationId": "conv-1790025002415-355",
-        "sender": "agent",
-        "senderName": "David M. (Operations)",
-        "text": "Consignment TRK-2026-89420 (Tokyo (HND), Japan → New York (JFK), United States) is currently In Transit at Anchorage Air Cargo Transshipment Hub (ANC), AK. Expected delivery: 18/09/2026.",
-        "timestamp": "2026-09-21T21:12:02.121Z",
+        "timestamp": "2026-09-23T16:14:53.370Z",
         "read": false
-      }
-    ],
-    "conv-1790073016287-931": [
+      },
       {
-        "id": "msg-1790073016287-423",
-        "conversationId": "conv-1790073016287-931",
-        "sender": "agent",
-        "senderName": "David M. (Operations)",
-        "text": "Welcome to Navithon Operations! A dedicated logistics dispatcher is available. How may we assist your freight shipment?",
-        "timestamp": "2026-09-22T10:30:16.287Z",
-        "read": true
+        "id": "msg-1790180093373-1945",
+        "conversationId": "conv-1790180093370-89",
+        "sender": "visitor",
+        "senderName": "Carlos Mendez",
+        "text": "Hello dispatcher, confirming temperature logging for shipment TRK-VERIFY-99881.",
+        "timestamp": "2026-09-23T16:14:53.373Z",
+        "read": false
       }
     ]
   }

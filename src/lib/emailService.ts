@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { Resend } from 'resend';
 import { Consignment, Checkpoint } from './types';
 import { formatDate, getStatusLabel, formatCurrency } from './utils';
@@ -17,7 +19,42 @@ export interface EmailOutboxItem {
   previewHtml?: string;
 }
 
-// Global in-memory outbox log for auditing and status inspection
+const DATA_DIR = path.join(process.cwd(), '.data');
+const OUTBOX_FILE = path.join(DATA_DIR, 'outbox.json');
+
+function ensureDataDir() {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+}
+
+function readOutboxFromDisk(): EmailOutboxItem[] {
+  ensureDataDir();
+  if (!fs.existsSync(OUTBOX_FILE)) {
+    return [];
+  }
+  try {
+    const raw = fs.readFileSync(OUTBOX_FILE, 'utf-8');
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeOutboxToDisk(items: EmailOutboxItem[]) {
+  ensureDataDir();
+  const tempPath = `${OUTBOX_FILE}.tmp.${Date.now()}`;
+  try {
+    fs.writeFileSync(tempPath, JSON.stringify(items.slice(0, 100), null, 2), 'utf-8');
+    fs.renameSync(tempPath, OUTBOX_FILE);
+  } catch {
+    try {
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    } catch {}
+  }
+}
+
 declare global {
   // eslint-disable-next-line no-var
   var __EMAIL_OUTBOX_LOG__: EmailOutboxItem[] | undefined;
@@ -25,7 +62,7 @@ declare global {
 
 function getOutboxLog(): EmailOutboxItem[] {
   if (!globalThis.__EMAIL_OUTBOX_LOG__) {
-    globalThis.__EMAIL_OUTBOX_LOG__ = [];
+    globalThis.__EMAIL_OUTBOX_LOG__ = readOutboxFromDisk();
   }
   return globalThis.__EMAIL_OUTBOX_LOG__;
 }
@@ -36,13 +73,16 @@ export function logDispatchedEmail(item: EmailOutboxItem) {
   if (log.length > 100) {
     log.length = 100;
   }
+  writeOutboxToDisk(log);
 }
 
 export function getRecentDispatchedEmails(trackingId?: string): EmailOutboxItem[] {
   const log = getOutboxLog();
-  if (!trackingId) return log;
+  const disk = readOutboxFromDisk();
+  const items = disk.length > 0 ? disk : log;
+  if (!trackingId) return items;
   const normalized = trackingId.trim().toUpperCase();
-  return log.filter((item) => item.trackingId.toUpperCase() === normalized);
+  return items.filter((item) => item.trackingId.toUpperCase() === normalized);
 }
 
 function getResendClient(): Resend | null {

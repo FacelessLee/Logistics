@@ -40,33 +40,33 @@ function BookingFormContent() {
   const [trackingId, setTrackingId] = useState<string>(() => generateTrackingId('TRK'));
 
   // Sender Details
-  const [senderName, setSenderName] = useState('Alexander Wright');
-  const [senderCompany, setSenderCompany] = useState('Global Tech Systems UK');
-  const [senderAddress, setSenderAddress] = useState('42 Canary Wharf Financial Tower');
-  const [senderCity, setSenderCity] = useState('London');
-  const [senderCountry, setSenderCountry] = useState('United Kingdom');
-  const [senderPhone, setSenderPhone] = useState('+44 20 7946 0881');
-  const [senderEmail, setSenderEmail] = useState('dispatch@globaltech.co.uk');
+  const [senderName, setSenderName] = useState('');
+  const [senderCompany, setSenderCompany] = useState('');
+  const [senderAddress, setSenderAddress] = useState('');
+  const [senderCity, setSenderCity] = useState('');
+  const [senderCountry, setSenderCountry] = useState('');
+  const [senderPhone, setSenderPhone] = useState('');
+  const [senderEmail, setSenderEmail] = useState('');
 
   // Receiver Details
-  const [receiverName, setReceiverName] = useState('Elena Rostova');
-  const [receiverCompany, setReceiverCompany] = useState('Nordic Avionics Logistics');
-  const [receiverAddress, setReceiverAddress] = useState('Hamngatan 14, Suite 800');
-  const [receiverCity, setReceiverCity] = useState('Stockholm');
-  const [receiverCountry, setReceiverCountry] = useState('Sweden');
-  const [receiverPhone, setReceiverPhone] = useState('+46 8 123 4567');
-  const [receiverEmail, setReceiverEmail] = useState('intake@nordicavionics.se');
+  const [receiverName, setReceiverName] = useState('');
+  const [receiverCompany, setReceiverCompany] = useState('');
+  const [receiverAddress, setReceiverAddress] = useState('');
+  const [receiverCity, setReceiverCity] = useState('');
+  const [receiverCountry, setReceiverCountry] = useState('');
+  const [receiverPhone, setReceiverPhone] = useState('');
+  const [receiverEmail, setReceiverEmail] = useState('');
 
   // Package Details
-  const [description, setDescription] = useState('Avionics Gyro-Stabilizer Navigation Sensors');
-  const [category, setCategory] = useState('Aerospace Electronics');
-  const [pieceCount, setPieceCount] = useState(2);
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('General Cargo');
+  const [pieceCount, setPieceCount] = useState(1);
   const [weightKg, setWeightKg] = useState(initialWeight);
-  const [declaredValue, setDeclaredValue] = useState(48500);
+  const [declaredValue, setDeclaredValue] = useState(1500);
   const [currency, setCurrency] = useState('USD');
-  const [isFragile, setIsFragile] = useState(true);
+  const [isFragile, setIsFragile] = useState(false);
   const [temperatureControlled, setTemperatureControlled] = useState(false);
-  const [specialHandling, setSpecialHandling] = useState('Fragile precision optics. Keep dry.');
+  const [specialHandling, setSpecialHandling] = useState('Standard cargo handling procedure');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdConsignment, setCreatedConsignment] = useState<Consignment | null>(null);
@@ -565,6 +565,7 @@ function BookingFormContent() {
                 <input
                   type="text"
                   required
+                  placeholder="e.g. John Doe"
                   className="form-input"
                   value={senderName}
                   onChange={(e) => setSenderName(e.target.value)}
@@ -575,6 +576,7 @@ function BookingFormContent() {
                 <label className="form-label">Company / Organization</label>
                 <input
                   type="text"
+                  placeholder="e.g. Acme Corp"
                   className="form-input"
                   value={senderCompany}
                   onChange={(e) => setSenderCompany(e.target.value)}
@@ -586,6 +588,7 @@ function BookingFormContent() {
                 <input
                   type="text"
                   required
+                  placeholder="e.g. 100 Main Street"
                   className="form-input"
                   value={senderAddress}
                   onChange={(e) => setSenderAddress(e.target.value)}
@@ -597,6 +600,7 @@ function BookingFormContent() {
                 <input
                   type="text"
                   required
+                  placeholder="e.g. London"
                   className="form-input"
                   value={senderCity}
                   onChange={(e) => setSenderCity(e.target.value)}
@@ -608,6 +612,7 @@ function BookingFormContent() {
                 <input
                   type="text"
                   required
+                  placeholder="e.g. United Kingdom"
                   className="form-input"
                   value={senderCountry}
                   onChange={(e) => setSenderCountry(e.target.value)}
@@ -619,6 +624,7 @@ function BookingFormContent() {
                 <input
                   type="text"
                   required
+                  placeholder="e.g. +44 20 7946 0881"
                   className="form-input"
                   value={senderPhone}
                   onChange={(e) => setSenderPhone(e.target.value)}
@@ -626,10 +632,11 @@ function BookingFormContent() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Email Address *</label>
+                <label className="form-label">Shipper Email Address (Receives Confirmation & Waybill) *</label>
                 <input
                   type="email"
                   required
+                  placeholder="shipper@example.com"
                   className="form-input"
                   value={senderEmail}
                   onChange={(e) => setSenderEmail(e.target.value)}
@@ -654,6 +661,7 @@ function BookingFormContent() {
                 <input
                   type="text"
                   required
+                  placeholder="e.g. Jane Smith"
                   className="form-input"
                   value={receiverName}
                   onChange={(e) => setReceiverName(e.target.value)}
@@ -664,6 +672,7 @@ function BookingFormContent() {
                 <label className="form-label">Company / Entity</label>
                 <input
                   type="text"
+                  placeholder="e.g. Logistics Partners Ltd"
                   className="form-input"
                   value={receiverCompany}
                   onChange={(e) => setReceiverCompany(e.target.value)}
@@ -675,6 +684,7 @@ function BookingFormContent() {
                 <input
                   type="text"
                   required
+                  placeholder="e.g. 450 Lexington Ave"
                   className="form-input"
                   value={receiverAddress}
                   onChange={(e) => setReceiverAddress(e.target.value)}
@@ -686,6 +696,7 @@ function BookingFormContent() {
                 <input
                   type="text"
                   required
+                  placeholder="e.g. New York"
                   className="form-input"
                   value={receiverCity}
                   onChange={(e) => setReceiverCity(e.target.value)}
@@ -697,6 +708,7 @@ function BookingFormContent() {
                 <input
                   type="text"
                   required
+                  placeholder="e.g. United States"
                   className="form-input"
                   value={receiverCountry}
                   onChange={(e) => setReceiverCountry(e.target.value)}
@@ -708,6 +720,7 @@ function BookingFormContent() {
                 <input
                   type="text"
                   required
+                  placeholder="e.g. +1 212 555 0184"
                   className="form-input"
                   value={receiverPhone}
                   onChange={(e) => setReceiverPhone(e.target.value)}
@@ -715,10 +728,11 @@ function BookingFormContent() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Email Address *</label>
+                <label className="form-label">Consignee Email Address (Receives Delivery Notice & Waybill) *</label>
                 <input
                   type="email"
                   required
+                  placeholder="consignee@example.com"
                   className="form-input"
                   value={receiverEmail}
                   onChange={(e) => setReceiverEmail(e.target.value)}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllConsignments, addConsignment } from '@/lib/storage';
+import { getAllConsignments, addConsignment, getConsignmentById } from '@/lib/storage';
 import { generateTrackingId } from '@/lib/utils';
 import { Consignment, Checkpoint } from '@/lib/types';
 import { sendNewConsignmentEmail } from '@/lib/emailService';
@@ -50,6 +50,19 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'Sender name, Receiver name, and Package description are required.' },
         { status: 400 }
       );
+    }
+
+    // Idempotency Check: if trackingId was explicitly provided and already registered, return existing record
+    if (body.trackingId && typeof body.trackingId === 'string') {
+      const existing = getConsignmentById(body.trackingId.trim());
+      if (existing) {
+        return NextResponse.json({
+          success: true,
+          message: `Consignment #${existing.trackingId} already registered (Idempotent response)`,
+          data: existing,
+          isIdempotent: true
+        }, { status: 200 });
+      }
     }
 
     const prefix = body.transportMode === 'OCEAN_CARGO' ? 'SEA' :

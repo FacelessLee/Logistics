@@ -15,7 +15,8 @@ export default function HeroDock({ onSelectService }: HeroDockProps) {
   const [activeHoverCard, setActiveHoverCard] = useState<string | null>(null);
 
   const handleTrack = () => {
-    const clean = trackingNumber.trim() || 'TRK-2026-89420';
+    const clean = trackingNumber.trim();
+    if (!clean) return;
     router.push(`/track/${encodeURIComponent(clean)}`);
   };
 
@@ -162,7 +163,7 @@ export default function HeroDock({ onSelectService }: HeroDockProps) {
             />
           </form>
 
-          {/* Quick Clickable Consignments */}
+          {/* Telemetry info caption */}
           <div
             style={{
               display: 'flex',
@@ -174,35 +175,10 @@ export default function HeroDock({ onSelectService }: HeroDockProps) {
               flexWrap: 'wrap',
             }}
           >
-            <span>TRY:</span>
-            {['TRK-2026-89420', 'SEA-4011-SHA-ROT'].map((sample) => (
-              <button
-                key={sample}
-                type="button"
-                onClick={() => setTrackingNumber(sample)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '4px',
-                  color: 'var(--accent-orange)',
-                  padding: '2px 6px',
-                  fontSize: '0.65rem',
-                  fontFamily: 'var(--font-mono)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 107, 53, 0.15)';
-                  e.currentTarget.style.borderColor = 'var(--accent-orange)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                }}
-              >
-                {sample}
-              </button>
-            ))}
+            <span>LIVE TELEMETRY:</span>
+            <span style={{ color: 'rgba(255, 255, 255, 0.65)' }}>
+              Enter any assigned consignment code (e.g. TRK-...) to lock satellite tracking
+            </span>
           </div>
         </div>
 

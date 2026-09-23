@@ -1,264 +1,273 @@
-import { Conversation, ChatMessage, ChatAttachment, MessageSender, ConversationStatus, VisitorMetadata } from './chatTypes';
-import { INITIAL_CONVERSATIONS, INITIAL_MESSAGES } from '../data/initialChats';
-import { getDatabase, isMongoConfigured } from './mongodb';
 import fs from 'fs';
 import path from 'path';
+import { Conversation, ChatMessage, ChatAttachment, MessageSender, ConversationStatus, VisitorMetadata } from './chatTypes';
+import { INITIAL_CONVERSATIONS, INITIAL_MESSAGES } from '../data/initialChats';
+import { isMongoConfigured, safeGetDatabase } from './mongodb';
+
+const DATA_DIR = path.join(process.cwd(), '.data');
+const CHAT_STORE_FILE = path.join(DATA_DIR, 'chat-store.json');
 
 const CONVERSATIONS_COLLECTION = 'conversations';
 const MESSAGES_COLLECTION = 'messages';
 
-let isInitialized = false;
-let initPromise: Promise<void> | null = null;
-
-// Fallback in-memory store in case MongoDB is temporarily unavailable
-declare global {
-  // eslint-disable-next-line no-var
-  var __FALLBACK_CHAT_CONVERSATIONS__: Conversation[] | undefined;
-  // eslint-disable-next-line no-var
-  var __FALLBACK_CHAT_MESSAGES__: Record<string, ChatMessage[]> | undefined;
+interface ChatStoreData {
+  conversations: Conversation[];
+  messages: Record<string, ChatMessage[]>;
 }
 
-function initFallbackStores() {
-  if (!globalThis.__FALLBACK_CHAT_CONVERSATIONS__ || !globalThis.__FALLBACK_CHAT_MESSAGES__) {
-    globalThis.__FALLBACK_CHAT_CONVERSATIONS__ = JSON.parse(JSON.stringify(INITIAL_CONVERSATIONS));
-    globalThis.__FALLBACK_CHAT_MESSAGES__ = JSON.parse(JSON.stringify(INITIAL_MESSAGES));
+declare global {
+  // eslint-disable-next-line no-var
+  var __GLOBAL_CHAT_STORE__: ChatStoreData | undefined;
+}
+
+function ensureDataDir() {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
   }
 }
 
-async function ensureDbInitialized(): Promise<void> {
-  if (isInitialized) return;
-  if (initPromise) return initPromise;
+function readChatStoreFromDisk(): ChatStoreData {
+  ensureDataDir();
+  if (!fs.existsSync(CHAT_STORE_FILE)) {
+    const initial: ChatStoreData = {
+      conversations: Array.isArray(INITIAL_CONVERSATIONS) ? INITIAL_CONVERSATIONS : [],
+      messages: INITIAL_MESSAGES && typeof INITIAL_MESSAGES === 'object' ? INITIAL_MESSAGES : {}
+    };
+    writeChatStoreToDisk(initial);
+    return initial;
+  }
+  try {
+    const raw = fs.readFileSync(CHAT_STORE_FILE, 'utf-8');
+    const parsed = JSON.parse(raw);
+    const conversations = Array.isArray(parsed.conversations) ? parsed.conversations : [];
+    // Filter out any legacy demo conversation like conv-rotterdam-01
+    const cleanConversations = conversations.filter(
+      (c: Conversation) => c.id !== 'conv-rotterdam-01' && !c.visitorName?.includes('Van Der Berg')
+    );
+    const messages = parsed.messages && typeof parsed.messages === 'object' ? parsed.messages : {};
+    delete messages['conv-rotterdam-01'];
 
-  initPromise = (async () => {
+    return {
+      conversations: cleanConversations,
+      messages
+    };
+  } catch (err) {
+    console.error('[ChatStorage] Error reading chat-store.json:', err);
+    return { conversations: [], messages: {} };
+  }
+}
+
+function writeChatStoreToDisk(store: ChatStoreData): void {
+  ensureDataDir();
+  const tempPath = `${CHAT_STORE_FILE}.tmp.${Date.now()}.${Math.random().toString(36).slice(2, 6)}`;
+  try {
+    fs.writeFileSync(tempPath, JSON.stringify(store, null, 2), 'utf-8');
+    fs.renameSync(tempPath, CHAT_STORE_FILE);
+  } catch (err) {
+    console.error('[ChatStorage] Error writing chat-store.json:', err);
     try {
-      if (!isMongoConfigured()) {
-        console.warn('[ChatStorage] MONGODB_URI not configured, using in-memory store');
-        initFallbackStores();
-        isInitialized = true;
-        return;
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    } catch {}
+  }
+}
+
+function getMemoryStore(): ChatStoreData {
+  if (!globalThis.__GLOBAL_CHAT_STORE__) {
+    globalThis.__GLOBAL_CHAT_STORE__ = readChatStoreFromDisk();
+  }
+  return globalThis.__GLOBAL_CHAT_STORE__;
+}
+
+// Asynchronously sync with MongoDB if available without blocking local execution
+async function syncConversationToMongo(conv: Conversation): Promise<void> {
+  if (!isMongoConfigured()) return;
+  try {
+    const db = await safeGetDatabase();
+    if (!db) return;
+    await db.collection<Conversation>(CONVERSATIONS_COLLECTION).updateOne(
+      { id: conv.id },
+      { $set: conv },
+      { upsert: true }
+    );
+  } catch (err) {
+    console.warn('[ChatStorage] MongoDB conversation sync warning:', err instanceof Error ? err.message : err);
+  }
+}
+
+async function syncMessageToMongo(msg: ChatMessage): Promise<void> {
+  if (!isMongoConfigured()) return;
+  try {
+    const db = await safeGetDatabase();
+    if (!db) return;
+    await db.collection<ChatMessage>(MESSAGES_COLLECTION).updateOne(
+      { id: msg.id },
+      { $set: msg },
+      { upsert: true }
+    );
+  } catch (err) {
+    console.warn('[ChatStorage] MongoDB message sync warning:', err instanceof Error ? err.message : err);
+  }
+}
+
+// Trigger background one-time sync / cleanup on start
+let hasSyncedWithMongo = false;
+async function triggerMongoSync(): Promise<void> {
+  if (hasSyncedWithMongo || !isMongoConfigured()) return;
+  hasSyncedWithMongo = true;
+  try {
+    const db = await safeGetDatabase();
+    if (!db) return;
+
+    // Purge demo records from Mongo
+    await db.collection(CONVERSATIONS_COLLECTION).deleteMany({
+      $or: [{ id: 'conv-rotterdam-01' }, { visitorId: 'vis-rotterdam-891' }]
+    });
+    await db.collection(MESSAGES_COLLECTION).deleteMany({
+      conversationId: 'conv-rotterdam-01'
+    });
+
+    const store = getMemoryStore();
+    // Hydrate remote conversations into local store if any
+    const remoteConvs = await db.collection<Conversation>(CONVERSATIONS_COLLECTION).find({}, { projection: { _id: 0 } }).toArray();
+    let updated = false;
+    for (const rConv of remoteConvs) {
+      if (rConv.id === 'conv-rotterdam-01') continue;
+      const idx = store.conversations.findIndex((c) => c.id === rConv.id);
+      if (idx === -1) {
+        store.conversations.unshift(rConv);
+        updated = true;
+      } else {
+        store.conversations[idx] = rConv;
+        updated = true;
       }
-
-      const db = await getDatabase();
-      const conversationsCol = db.collection<Conversation>(CONVERSATIONS_COLLECTION);
-      const messagesCol = db.collection<ChatMessage>(MESSAGES_COLLECTION);
-
-      // Create helpful indexes
-      await Promise.allSettled([
-        conversationsCol.createIndex({ id: 1 }, { unique: true }),
-        conversationsCol.createIndex({ visitorId: 1 }),
-        conversationsCol.createIndex({ updatedAt: -1 }),
-        messagesCol.createIndex({ id: 1 }, { unique: true }),
-        messagesCol.createIndex({ conversationId: 1, timestamp: 1 }),
-      ]);
-
-      const count = await conversationsCol.countDocuments();
-      if (count === 0) {
-        console.log('[ChatStorage] Initializing MongoDB chat collections...');
-        let seedConversations = INITIAL_CONVERSATIONS;
-        let seedMessagesMap = INITIAL_MESSAGES;
-
-        // Check if existing .data/chat-store.json has previous conversations
-        try {
-          const dataFile = path.join(process.cwd(), '.data', 'chat-store.json');
-          if (fs.existsSync(dataFile)) {
-            const raw = fs.readFileSync(dataFile, 'utf-8');
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed.conversations) && parsed.conversations.length > 0) {
-              seedConversations = parsed.conversations;
-              if (parsed.messages && typeof parsed.messages === 'object') {
-                seedMessagesMap = parsed.messages;
-              }
-            }
-          }
-        } catch (err) {
-          console.warn('[ChatStorage] Could not read local chat-store.json for initial seed:', err);
-        }
-
-        // Insert conversations
-        if (seedConversations.length > 0) {
-          const convDocs = seedConversations.map((c) => ({ ...c }));
-          await conversationsCol.insertMany(convDocs as any);
-        }
-
-        // Flatten messages
-        const allMessages: ChatMessage[] = [];
-        for (const convId of Object.keys(seedMessagesMap)) {
-          const msgs = seedMessagesMap[convId] || [];
-          for (const msg of msgs) {
-            allMessages.push({ ...msg });
-          }
-        }
-
-        if (allMessages.length > 0) {
-          await messagesCol.insertMany(allMessages as any);
-        }
-
-        console.log(`[ChatStorage] Seeded ${seedConversations.length} conversations and ${allMessages.length} messages.`);
-      }
-
-      isInitialized = true;
-    } catch (err) {
-      console.error('[ChatStorage] Failed to initialize MongoDB, using fallback in-memory:', err);
-      initFallbackStores();
-      isInitialized = true;
     }
-  })();
-
-  return initPromise;
+    if (updated) {
+      writeChatStoreToDisk(store);
+    }
+  } catch (err) {
+    console.warn('[ChatStorage] MongoDB initial sync warning:', err);
+  }
 }
 
 export async function getAllConversations(): Promise<Conversation[]> {
-  await ensureDbInitialized();
-  try {
-    const db = await getDatabase();
-    const docs = await db
-      .collection<Conversation>(CONVERSATIONS_COLLECTION)
-      .find({}, { projection: { _id: 0 } })
-      .sort({ updatedAt: -1 })
-      .toArray();
+  triggerMongoSync().catch(() => {});
+  // Always ensure fresh data from disk
+  const diskData = readChatStoreFromDisk();
+  globalThis.__GLOBAL_CHAT_STORE__ = diskData;
 
-    return docs;
-  } catch (err) {
-    console.error('[ChatStorage] getAllConversations error, falling back:', err);
-    initFallbackStores();
-    return [...globalThis.__FALLBACK_CHAT_CONVERSATIONS__!].sort(
-      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    );
-  }
+  return [...diskData.conversations].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
 }
 
 export async function getConversationById(id: string): Promise<Conversation | null> {
-  await ensureDbInitialized();
-  try {
-    const db = await getDatabase();
-    const doc = await db
-      .collection<Conversation>(CONVERSATIONS_COLLECTION)
-      .findOne({ id }, { projection: { _id: 0 } });
+  const store = getMemoryStore();
+  const conv = store.conversations.find((c) => c.id === id);
+  if (conv) return conv;
 
-    return doc || null;
-  } catch (err) {
-    console.error('[ChatStorage] getConversationById error, falling back:', err);
-    initFallbackStores();
-    return globalThis.__FALLBACK_CHAT_CONVERSATIONS__!.find((c) => c.id === id) || null;
-  }
+  // Double check fresh disk in case another process created it
+  const disk = readChatStoreFromDisk();
+  globalThis.__GLOBAL_CHAT_STORE__ = disk;
+  return disk.conversations.find((c) => c.id === id) || null;
 }
 
 export async function getMessagesForConversation(convId: string): Promise<ChatMessage[]> {
-  await ensureDbInitialized();
-  try {
-    const db = await getDatabase();
-    const docs = await db
-      .collection<ChatMessage>(MESSAGES_COLLECTION)
-      .find({ conversationId: convId }, { projection: { _id: 0 } })
-      .sort({ timestamp: 1 })
-      .toArray();
-
-    return docs;
-  } catch (err) {
-    console.error('[ChatStorage] getMessagesForConversation error, falling back:', err);
-    initFallbackStores();
-    return globalThis.__FALLBACK_CHAT_MESSAGES__![convId] || [];
+  const store = getMemoryStore();
+  if (store.messages[convId]) {
+    return store.messages[convId];
   }
+  const disk = readChatStoreFromDisk();
+  globalThis.__GLOBAL_CHAT_STORE__ = disk;
+  return disk.messages[convId] || [];
 }
 
+/**
+ * Idempotent Visitor Conversation Creator / Retriever:
+ * Checks for existing conversation by visitorId. Returns the existing conversation
+ * if already present, preventing duplicate threads.
+ */
 export async function getOrCreateVisitorConversation(
   visitorId: string,
   metadata?: Partial<VisitorMetadata>
 ): Promise<{ conversation: Conversation; isNew: boolean }> {
-  await ensureDbInitialized();
-  try {
-    const db = await getDatabase();
-    const conversationsCol = db.collection<Conversation>(CONVERSATIONS_COLLECTION);
-    const messagesCol = db.collection<ChatMessage>(MESSAGES_COLLECTION);
+  triggerMongoSync().catch(() => {});
+  const store = getMemoryStore();
 
-    const existing = await conversationsCol.findOne({ visitorId }, { projection: { _id: 0 } });
-    if (existing) {
-      const updates: Partial<Conversation> = {};
-      if (metadata?.currentPage && metadata.currentPage !== existing.currentPage) {
-        updates.currentPage = metadata.currentPage;
-      }
-      if (metadata?.name && !existing.visitorName.includes(metadata.name)) {
-        updates.visitorName = metadata.name;
-      }
-      if (metadata?.email && metadata.email !== existing.visitorEmail) {
-        updates.visitorEmail = metadata.email;
-      }
-
-      if (Object.keys(updates).length > 0) {
-        await conversationsCol.updateOne({ visitorId }, { $set: updates });
-        return { conversation: { ...existing, ...updates }, isNew: false };
-      }
-      return { conversation: existing, isNew: false };
+  // Find existing by visitorId
+  const existingIndex = store.conversations.findIndex((c) => c.visitorId === visitorId);
+  if (existingIndex !== -1) {
+    const existing = store.conversations[existingIndex];
+    const updates: Partial<Conversation> = {};
+    if (metadata?.currentPage && metadata.currentPage !== existing.currentPage) {
+      updates.currentPage = metadata.currentPage;
+    }
+    if (metadata?.name && !existing.visitorName.includes(metadata.name)) {
+      updates.visitorName = metadata.name;
+    }
+    if (metadata?.email && metadata.email !== existing.visitorEmail) {
+      updates.visitorEmail = metadata.email;
     }
 
-    // Create new conversation
-    const newConvId = `conv-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const defaultName = metadata?.name || `Visitor #${visitorId.slice(-4).toUpperCase()}`;
-    const now = new Date().toISOString();
-
-    const welcomeMessageText =
-      'Welcome to Navithon Operations! A dedicated logistics dispatcher is available. How may we assist your freight shipment?';
-
-    const newConv: Conversation = {
-      id: newConvId,
-      visitorId,
-      visitorName: defaultName,
-      visitorEmail: metadata?.email,
-      visitorCompany: metadata?.company,
-      visitorLocation: metadata?.location || 'International Visitor',
-      currentPage: metadata?.currentPage || '/',
-      status: 'ACTIVE',
-      unreadCountAgent: 0,
-      unreadCountVisitor: 1,
-      createdAt: now,
-      updatedAt: now,
-      lastMessageText: welcomeMessageText,
-      lastMessageTimestamp: now,
-      assignedAgent: 'David M. (Operations)'
-    };
-
-    await conversationsCol.insertOne({ ...newConv } as any);
-
-    const welcomeMsg: ChatMessage = {
-      id: `msg-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      conversationId: newConvId,
-      sender: 'agent',
-      senderName: 'David M. (Operations)',
-      text: welcomeMessageText,
-      timestamp: now,
-      read: false
-    };
-
-    await messagesCol.insertOne({ ...welcomeMsg } as any);
-
-    return { conversation: newConv, isNew: true };
-  } catch (err) {
-    console.error('[ChatStorage] getOrCreateVisitorConversation error, falling back:', err);
-    initFallbackStores();
-    const conversations = globalThis.__FALLBACK_CHAT_CONVERSATIONS__!;
-    let conv = conversations.find((c) => c.visitorId === visitorId);
-    if (conv) return { conversation: conv, isNew: false };
-
-    const newConvId = `conv-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const now = new Date().toISOString();
-    conv = {
-      id: newConvId,
-      visitorId,
-      visitorName: metadata?.name || `Visitor #${visitorId.slice(-4).toUpperCase()}`,
-      visitorLocation: metadata?.location || 'International Visitor',
-      currentPage: metadata?.currentPage || '/',
-      status: 'ACTIVE',
-      unreadCountAgent: 0,
-      unreadCountVisitor: 1,
-      createdAt: now,
-      updatedAt: now,
-      lastMessageText: 'Welcome to Navithon Operations!',
-      lastMessageTimestamp: now,
-      assignedAgent: 'David M. (Operations)'
-    };
-    conversations.unshift(conv);
-    return { conversation: conv, isNew: true };
+    if (Object.keys(updates).length > 0) {
+      const updated = { ...existing, ...updates };
+      store.conversations[existingIndex] = updated;
+      writeChatStoreToDisk(store);
+      syncConversationToMongo(updated);
+      return { conversation: updated, isNew: false };
+    }
+    return { conversation: existing, isNew: false };
   }
+
+  // Create brand new conversation
+  const newConvId = `conv-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const defaultName = metadata?.name || `Visitor #${visitorId.slice(-4).toUpperCase()}`;
+  const now = new Date().toISOString();
+
+  const welcomeMessageText =
+    'Welcome to Navithon Operations! A dedicated logistics dispatcher is available. How may we assist your freight shipment?';
+
+  const newConv: Conversation = {
+    id: newConvId,
+    visitorId,
+    visitorName: defaultName,
+    visitorEmail: metadata?.email,
+    visitorCompany: metadata?.company,
+    visitorLocation: metadata?.location || 'International Visitor',
+    currentPage: metadata?.currentPage || '/',
+    status: 'ACTIVE',
+    unreadCountAgent: 0,
+    unreadCountVisitor: 1,
+    createdAt: now,
+    updatedAt: now,
+    lastMessageText: welcomeMessageText,
+    lastMessageTimestamp: now,
+    assignedAgent: 'David M. (Operations)'
+  };
+
+  const welcomeMsg: ChatMessage = {
+    id: `msg-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    conversationId: newConvId,
+    sender: 'agent',
+    senderName: 'David M. (Operations)',
+    text: welcomeMessageText,
+    timestamp: now,
+    read: false
+  };
+
+  store.conversations.unshift(newConv);
+  if (!store.messages[newConvId]) {
+    store.messages[newConvId] = [];
+  }
+  store.messages[newConvId].push(welcomeMsg);
+
+  // Write durably to disk
+  writeChatStoreToDisk(store);
+
+  // Sync to MongoDB in background
+  syncConversationToMongo(newConv);
+  syncMessageToMongo(welcomeMsg);
+
+  return { conversation: newConv, isNew: true };
 }
 
 export async function addChatMessage(
@@ -270,114 +279,67 @@ export async function addChatMessage(
     attachment?: ChatAttachment;
   }
 ): Promise<{ message: ChatMessage; conversation: Conversation }> {
-  await ensureDbInitialized();
-  try {
-    const db = await getDatabase();
-    const conversationsCol = db.collection<Conversation>(CONVERSATIONS_COLLECTION);
-    const messagesCol = db.collection<ChatMessage>(MESSAGES_COLLECTION);
-
-    const conv = await conversationsCol.findOne({ id: conversationId }, { projection: { _id: 0 } });
-    if (!conv) {
-      throw new Error(`Conversation not found: ${conversationId}`);
-    }
-
-    const now = new Date().toISOString();
-    const newMsg: ChatMessage = {
-      id: `msg-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-      conversationId,
-      sender: messageData.sender,
-      senderName: messageData.senderName,
-      text: messageData.text.trim(),
-      attachment: messageData.attachment,
-      timestamp: now,
-      read: false
-    };
-
-    await messagesCol.insertOne({ ...newMsg } as any);
-
-    const updateFields: any = {
-      lastMessageText: newMsg.text || (newMsg.attachment ? `[Attachment] ${newMsg.attachment.name}` : 'New message'),
-      lastMessageTimestamp: now,
-      updatedAt: now,
-    };
-
-    const incFields: any = {};
-    if (messageData.sender === 'visitor') {
-      incFields.unreadCountAgent = 1;
-      if (conv.status === 'RESOLVED') {
-        updateFields.status = 'ACTIVE';
-      }
-    } else if (messageData.sender === 'agent') {
-      incFields.unreadCountVisitor = 1;
-    }
-
-    const updateDoc: any = { $set: updateFields };
-    if (Object.keys(incFields).length > 0) {
-      updateDoc.$inc = incFields;
-    }
-
-    await conversationsCol.updateOne({ id: conversationId }, updateDoc);
-
-    const updatedConv = await conversationsCol.findOne({ id: conversationId }, { projection: { _id: 0 } });
-
-    return {
-      message: newMsg,
-      conversation: updatedConv || { ...conv, ...updateFields }
-    };
-  } catch (err) {
-    console.error('[ChatStorage] addChatMessage error, falling back:', err);
-    initFallbackStores();
-    const conv = globalThis.__FALLBACK_CHAT_CONVERSATIONS__!.find((c) => c.id === conversationId);
-    if (!conv) throw new Error(`Conversation not found: ${conversationId}`);
-
-    const now = new Date().toISOString();
-    const newMsg: ChatMessage = {
-      id: `msg-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-      conversationId,
-      sender: messageData.sender,
-      senderName: messageData.senderName,
-      text: messageData.text.trim(),
-      attachment: messageData.attachment,
-      timestamp: now,
-      read: false
-    };
-
-    if (!globalThis.__FALLBACK_CHAT_MESSAGES__![conversationId]) {
-      globalThis.__FALLBACK_CHAT_MESSAGES__![conversationId] = [];
-    }
-    globalThis.__FALLBACK_CHAT_MESSAGES__![conversationId].push(newMsg);
-
-    conv.lastMessageText = newMsg.text || 'New message';
-    conv.lastMessageTimestamp = now;
-    conv.updatedAt = now;
-    if (messageData.sender === 'visitor') conv.unreadCountAgent += 1;
-    else if (messageData.sender === 'agent') conv.unreadCountVisitor += 1;
-
-    return { message: newMsg, conversation: conv };
+  const store = getMemoryStore();
+  const conv = store.conversations.find((c) => c.id === conversationId);
+  if (!conv) {
+    throw new Error(`Conversation not found: ${conversationId}`);
   }
+
+  const now = new Date().toISOString();
+  const newMsg: ChatMessage = {
+    id: `msg-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+    conversationId,
+    sender: messageData.sender,
+    senderName: messageData.senderName,
+    text: messageData.text.trim(),
+    attachment: messageData.attachment,
+    timestamp: now,
+    read: false
+  };
+
+  if (!store.messages[conversationId]) {
+    store.messages[conversationId] = [];
+  }
+  store.messages[conversationId].push(newMsg);
+
+  conv.lastMessageText = newMsg.text || (newMsg.attachment ? `[Attachment] ${newMsg.attachment.name}` : 'New message');
+  conv.lastMessageTimestamp = now;
+  conv.updatedAt = now;
+
+  if (messageData.sender === 'visitor') {
+    conv.unreadCountAgent += 1;
+    if (conv.status === 'RESOLVED') {
+      conv.status = 'ACTIVE';
+    }
+  } else if (messageData.sender === 'agent') {
+    conv.unreadCountVisitor += 1;
+  }
+
+  // Write durably to disk
+  writeChatStoreToDisk(store);
+
+  // Sync to MongoDB in background
+  syncConversationToMongo(conv);
+  syncMessageToMongo(newMsg);
+
+  return { message: newMsg, conversation: conv };
 }
 
 export async function updateConversationStatus(
   id: string,
   status: ConversationStatus
 ): Promise<Conversation | null> {
-  await ensureDbInitialized();
-  try {
-    const db = await getDatabase();
-    const conversationsCol = db.collection<Conversation>(CONVERSATIONS_COLLECTION);
-    const now = new Date().toISOString();
+  const store = getMemoryStore();
+  const conv = store.conversations.find((c) => c.id === id);
+  if (!conv) return null;
 
-    await conversationsCol.updateOne({ id }, { $set: { status, updatedAt: now } });
-    return await conversationsCol.findOne({ id }, { projection: { _id: 0 } });
-  } catch (err) {
-    console.error('[ChatStorage] updateConversationStatus error:', err);
-    initFallbackStores();
-    const conv = globalThis.__FALLBACK_CHAT_CONVERSATIONS__!.find((c) => c.id === id);
-    if (!conv) return null;
-    conv.status = status;
-    conv.updatedAt = new Date().toISOString();
-    return conv;
-  }
+  conv.status = status;
+  conv.updatedAt = new Date().toISOString();
+
+  writeChatStoreToDisk(store);
+  syncConversationToMongo(conv);
+
+  return conv;
 }
 
 export async function updateConversationNotes(
@@ -385,94 +347,62 @@ export async function updateConversationNotes(
   notes: string,
   linkedTrackingId?: string
 ): Promise<Conversation | null> {
-  await ensureDbInitialized();
-  try {
-    const db = await getDatabase();
-    const conversationsCol = db.collection<Conversation>(CONVERSATIONS_COLLECTION);
-    const now = new Date().toISOString();
+  const store = getMemoryStore();
+  const conv = store.conversations.find((c) => c.id === id);
+  if (!conv) return null;
 
-    const updateFields: Partial<Conversation> = {
-      internalNotes: notes,
-      updatedAt: now
-    };
-    if (linkedTrackingId !== undefined) {
-      updateFields.linkedTrackingId = linkedTrackingId;
-    }
-
-    await conversationsCol.updateOne({ id }, { $set: updateFields });
-    return await conversationsCol.findOne({ id }, { projection: { _id: 0 } });
-  } catch (err) {
-    console.error('[ChatStorage] updateConversationNotes error:', err);
-    initFallbackStores();
-    const conv = globalThis.__FALLBACK_CHAT_CONVERSATIONS__!.find((c) => c.id === id);
-    if (!conv) return null;
-    conv.internalNotes = notes;
-    if (linkedTrackingId !== undefined) conv.linkedTrackingId = linkedTrackingId;
-    conv.updatedAt = new Date().toISOString();
-    return conv;
+  conv.internalNotes = notes;
+  if (linkedTrackingId !== undefined) {
+    conv.linkedTrackingId = linkedTrackingId;
   }
+  conv.updatedAt = new Date().toISOString();
+
+  writeChatStoreToDisk(store);
+  syncConversationToMongo(conv);
+
+  return conv;
 }
 
 export async function markConversationRead(
   id: string,
   reader: 'agent' | 'visitor'
 ): Promise<Conversation | null> {
-  await ensureDbInitialized();
-  try {
-    const db = await getDatabase();
-    const conversationsCol = db.collection<Conversation>(CONVERSATIONS_COLLECTION);
-    const messagesCol = db.collection<ChatMessage>(MESSAGES_COLLECTION);
+  const store = getMemoryStore();
+  const conv = store.conversations.find((c) => c.id === id);
+  if (!conv) return null;
 
-    const updateDoc: any = {};
-    if (reader === 'agent') {
-      updateDoc.$set = { unreadCountAgent: 0 };
-      await messagesCol.updateMany({ conversationId: id, sender: 'visitor' }, { $set: { read: true } });
-    } else {
-      updateDoc.$set = { unreadCountVisitor: 0 };
-      await messagesCol.updateMany({ conversationId: id, sender: 'agent' }, { $set: { read: true } });
-    }
-
-    await conversationsCol.updateOne({ id }, updateDoc);
-    return await conversationsCol.findOne({ id }, { projection: { _id: 0 } });
-  } catch (err) {
-    console.error('[ChatStorage] markConversationRead error:', err);
-    initFallbackStores();
-    const conv = globalThis.__FALLBACK_CHAT_CONVERSATIONS__!.find((c) => c.id === id);
-    if (!conv) return null;
-    if (reader === 'agent') conv.unreadCountAgent = 0;
-    else conv.unreadCountVisitor = 0;
-    return conv;
+  if (reader === 'agent') {
+    conv.unreadCountAgent = 0;
+    const msgs = store.messages[id] || [];
+    msgs.forEach((m) => {
+      if (m.sender === 'visitor') m.read = true;
+    });
+  } else {
+    conv.unreadCountVisitor = 0;
+    const msgs = store.messages[id] || [];
+    msgs.forEach((m) => {
+      if (m.sender === 'agent') m.read = true;
+    });
   }
+
+  writeChatStoreToDisk(store);
+  syncConversationToMongo(conv);
+
+  return conv;
 }
 
 export async function resetChatStore(): Promise<void> {
-  await ensureDbInitialized();
-  try {
-    const db = await getDatabase();
-    const conversationsCol = db.collection<Conversation>(CONVERSATIONS_COLLECTION);
-    const messagesCol = db.collection<ChatMessage>(MESSAGES_COLLECTION);
+  const empty: ChatStoreData = { conversations: [], messages: {} };
+  globalThis.__GLOBAL_CHAT_STORE__ = empty;
+  writeChatStoreToDisk(empty);
 
-    await conversationsCol.deleteMany({});
-    await messagesCol.deleteMany({});
-
-    const convDocs = INITIAL_CONVERSATIONS.map((c) => ({ ...c }));
-    await conversationsCol.insertMany(convDocs as any);
-
-    const allMessages: ChatMessage[] = [];
-    for (const convId of Object.keys(INITIAL_MESSAGES)) {
-      const msgs = INITIAL_MESSAGES[convId] || [];
-      for (const msg of msgs) {
-        allMessages.push({ ...msg });
+  if (isMongoConfigured()) {
+    try {
+      const db = await safeGetDatabase();
+      if (db) {
+        await db.collection(CONVERSATIONS_COLLECTION).deleteMany({});
+        await db.collection(MESSAGES_COLLECTION).deleteMany({});
       }
-    }
-    if (allMessages.length > 0) {
-      await messagesCol.insertMany(allMessages as any);
-    }
-    console.log('[ChatStorage] Chat store reset to default seed data in MongoDB');
-  } catch (err) {
-    console.error('[ChatStorage] resetChatStore error:', err);
-    initFallbackStores();
-    globalThis.__FALLBACK_CHAT_CONVERSATIONS__ = JSON.parse(JSON.stringify(INITIAL_CONVERSATIONS));
-    globalThis.__FALLBACK_CHAT_MESSAGES__ = JSON.parse(JSON.stringify(INITIAL_MESSAGES));
+    } catch {}
   }
 }
