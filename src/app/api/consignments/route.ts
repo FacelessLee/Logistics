@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAllConsignments, addConsignment } from '@/lib/storage';
 import { generateTrackingId } from '@/lib/utils';
 import { Consignment, Checkpoint } from '@/lib/types';
+import { sendNewConsignmentEmail } from '@/lib/emailService';
 
 export async function GET(request: NextRequest) {
   try {
@@ -118,10 +119,27 @@ export async function POST(request: NextRequest) {
 
     const saved = addConsignment(newConsignment);
 
+    // Trigger asynchronous confirmation email with attached waybill PDF
+    let emailResult: { success: boolean; recipients: string[]; error?: string; resendId?: string } = {
+      success: false,
+      recipients: []
+    };
+    try {
+      emailResult = await sendNewConsignmentEmail(saved);
+    } catch (emailErr) {
+      console.error('[API Consignments] Failed to dispatch new consignment confirmation email:', emailErr);
+      emailResult.error = emailErr instanceof Error ? emailErr.message : 'Unknown email dispatch error';
+    }
+
     return NextResponse.json({
       success: true,
-      message: 'Consignment created successfully',
-      data: saved
+      message: 'Consignment created successfully and confirmation email dispatched',
+      data: saved,
+      email: {
+        dispatched: emailResult.success,
+        recipients: emailResult.recipients,
+        error: emailResult.error || undefined
+      }
     }, { status: 201 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to create consignment';

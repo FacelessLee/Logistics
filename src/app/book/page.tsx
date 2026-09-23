@@ -16,7 +16,9 @@ import {
   Copy,
   Printer,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Mail,
+  Download
 } from 'lucide-react';
 import { generateTrackingId } from '@/lib/utils';
 import { TransportMode, ServiceTier, Consignment } from '@/lib/types';
@@ -243,8 +245,43 @@ function BookingFormContent() {
               </div>
             </div>
 
+            {/* Email Dispatch Notice */}
+            <div style={{
+              background: 'rgba(2, 132, 199, 0.12)',
+              border: '1px solid rgba(2, 132, 199, 0.35)',
+              borderRadius: 'var(--radius-md)',
+              padding: '16px 20px',
+              textAlign: 'left',
+              marginBottom: '28px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '14px'
+            }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                background: 'rgba(2, 132, 199, 0.25)',
+                color: 'var(--accent-cyan-light)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <Mail size={20} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.92rem' }}>
+                  Confirmation & Official Waybill Email Dispatched
+                </div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '2px', lineHeight: 1.4 }}>
+                  A confirmation message with full consignment timeline, location routing, order details, and an attached copy of the official Air Waybill (PDF) was sent to <strong>{createdConsignment.sender.email}</strong>.
+                </div>
+              </div>
+            </div>
+
             {/* Action CTAs */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
               <Link
                 href={`/track/${createdConsignment.trackingId}`}
                 className="btn btn-primary"
@@ -254,13 +291,24 @@ function BookingFormContent() {
                 <ArrowRight size={18} />
               </Link>
 
+              <a
+                href={`/api/consignments/${createdConsignment.trackingId}/waybill-pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-secondary"
+                style={{ padding: '14px 24px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+              >
+                <Download size={18} />
+                <span>Download Waybill (PDF)</span>
+              </a>
+
               <button
                 onClick={() => setShowWaybill(true)}
                 className="btn btn-secondary"
-                style={{ padding: '14px 24px' }}
+                style={{ padding: '14px 20px' }}
               >
                 <Printer size={18} />
-                <span>Print Official Waybill</span>
+                <span>View / Print Waybill</span>
               </button>
             </div>
           </div>

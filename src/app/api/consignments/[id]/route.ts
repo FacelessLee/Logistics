@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConsignmentById, updateConsignment, addCheckpointToConsignment } from '@/lib/storage';
+import { sendStatusUpdateEmail } from '@/lib/emailService';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -58,6 +59,12 @@ export async function PATCH(
     // If checkpoint is provided, append it
     if (body.checkpoint) {
       const updated = addCheckpointToConsignment(id, body.checkpoint);
+      if (updated && updated.checkpoints.length > 0) {
+        const latestCheckpoint = updated.checkpoints[updated.checkpoints.length - 1];
+        sendStatusUpdateEmail(updated, latestCheckpoint).catch((err) =>
+          console.error('[API PATCH] Error sending status email:', err)
+        );
+      }
       return NextResponse.json({
         success: true,
         message: 'Checkpoint added successfully',
@@ -67,6 +74,22 @@ export async function PATCH(
 
     // Otherwise apply partial updates
     const updated = updateConsignment(id, body);
+    if (updated && body.status && body.status !== existing.status) {
+      const latestCheckpoint = updated.checkpoints.length > 0
+        ? updated.checkpoints[updated.checkpoints.length - 1]
+        : {
+            id: `cp-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            status: updated.status,
+            title: `Consignment status updated to ${updated.status}`,
+            location: updated.currentLocation,
+            description: `Status changed to ${updated.status}`,
+            facility: 'Navithon Hub'
+          };
+      sendStatusUpdateEmail(updated, latestCheckpoint).catch((err) =>
+        console.error('[API PATCH] Error sending status email:', err)
+      );
+    }
     return NextResponse.json({
       success: true,
       message: 'Consignment updated successfully',

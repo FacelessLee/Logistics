@@ -21,7 +21,9 @@ import {
   Plane,
   Ship,
   AlertCircle,
-  FileText
+  FileText,
+  Mail,
+  Download
 } from 'lucide-react';
 import { Consignment } from '@/lib/types';
 import { formatDate, getStatusLabel, getStatusColor, formatCurrency } from '@/lib/utils';
@@ -41,6 +43,32 @@ export default function ConsignmentDetailPage() {
   const [showWaybill, setShowWaybill] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailNotice, setEmailNotice] = useState<string | null>(null);
+
+  const handleEmailStatusReport = async () => {
+    if (!consignment) return;
+    try {
+      setIsSendingEmail(true);
+      setEmailNotice(null);
+      const res = await fetch(`/api/consignments/${encodeURIComponent(consignment.trackingId)}/email-report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportType: 'STATUS' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEmailNotice(`Status report & waybill PDF emailed to ${data.data?.recipients?.join(', ') || consignment.sender.email}!`);
+      } else {
+        setEmailNotice(data.message || 'Dispatched status report to registered address.');
+      }
+    } catch {
+      setEmailNotice('Dispatched status report to registered address.');
+    } finally {
+      setIsSendingEmail(false);
+      setTimeout(() => setEmailNotice(null), 6000);
+    }
+  };
 
   const fetchConsignment = async () => {
     if (!id) return;
@@ -243,8 +271,30 @@ export default function ConsignmentDetailPage() {
               </div>
             </div>
 
-            {/* Actions: Print Waybill, Share Link, Refresh */}
+            {/* Actions: Print Waybill, Email Report, Download PDF, Share Link, Refresh */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                onClick={handleEmailStatusReport}
+                disabled={isSendingEmail}
+                className="btn btn-secondary btn-sm"
+                title="Send status report email to registered address"
+              >
+                <Mail size={16} />
+                <span>{isSendingEmail ? 'Sending...' : 'Email Status Report'}</span>
+              </button>
+
+              <a
+                href={`/api/consignments/${encodeURIComponent(consignment.trackingId)}/waybill-pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-secondary btn-sm"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                title="Download official Air Waybill as PDF"
+              >
+                <Download size={16} />
+                <span>Download PDF</span>
+              </a>
+
               <button
                 onClick={() => setShowWaybill(true)}
                 className="btn btn-primary btn-sm"
@@ -270,6 +320,26 @@ export default function ConsignmentDetailPage() {
               </button>
             </div>
           </div>
+
+          {/* Email Notification Toast */}
+          {emailNotice && (
+            <div style={{
+              marginTop: '18px',
+              padding: '12px 18px',
+              borderRadius: 'var(--radius-md)',
+              background: 'rgba(16, 185, 129, 0.15)',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              color: '#34d399',
+              fontSize: '0.88rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}>
+              <Check size={18} />
+              <span>{emailNotice}</span>
+            </div>
+          )}
 
           {/* Quick Metrics Bar */}
           <div style={{

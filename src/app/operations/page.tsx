@@ -25,7 +25,8 @@ import {
   Sparkles,
   Paperclip,
   Check,
-  ChevronRight
+  ChevronRight,
+  Mail
 } from 'lucide-react';
 import { Conversation, ChatMessage, ConversationStatus, CannedResponse } from '@/lib/chatTypes';
 import { INITIAL_CANNED_RESPONSES } from '@/data/initialChats';
@@ -1980,34 +1981,60 @@ export default function OperationsPortalPage() {
                       </td>
 
                       <td style={{ padding: '16px 20px', textAlign: 'right' }}>
-                        <button
-                          onClick={() => openUpdateModal(c)}
-                          style={{
-                            padding: '6px 12px',
-                            borderRadius: '8px',
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
-                            color: '#FFFFFF',
-                            fontFamily: 'var(--font-mono)',
-                            fontSize: '0.75rem',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            transition: 'all 0.2s',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = 'var(--accent-orange)';
-                            e.currentTarget.style.color = 'var(--accent-orange)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                            e.currentTarget.style.color = '#FFFFFF';
-                          }}
-                        >
-                          <PlusCircle size={14} />
-                          <span>CHECKPOINT</span>
-                        </button>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                          <a
+                            href={`/api/consignments/${encodeURIComponent(c.trackingId)}/waybill-pdf`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              padding: '6px 10px',
+                              borderRadius: '8px',
+                              background: 'rgba(2, 132, 199, 0.12)',
+                              border: '1px solid rgba(2, 132, 199, 0.3)',
+                              color: '#38bdf8',
+                              fontFamily: 'var(--font-mono)',
+                              fontSize: '0.75rem',
+                              textDecoration: 'none',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              transition: 'all 0.2s',
+                            }}
+                            title="Download official Air Waybill PDF"
+                          >
+                            <Download size={13} />
+                            <span>PDF</span>
+                          </a>
+
+                          <button
+                            onClick={() => openUpdateModal(c)}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              background: 'rgba(255, 255, 255, 0.05)',
+                              border: '1px solid rgba(255, 255, 255, 0.12)',
+                              color: '#FFFFFF',
+                              fontFamily: 'var(--font-mono)',
+                              fontSize: '0.75rem',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              transition: 'all 0.2s',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = 'var(--accent-orange)';
+                              e.currentTarget.style.color = 'var(--accent-orange)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                              e.currentTarget.style.color = '#FFFFFF';
+                            }}
+                          >
+                            <PlusCircle size={14} />
+                            <span>CHECKPOINT</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     );
@@ -2150,6 +2177,22 @@ export default function OperationsPortalPage() {
                     resize: 'none',
                   }}
                 />
+              </div>
+
+              <div style={{
+                marginTop: '12px',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                background: 'rgba(2, 132, 199, 0.12)',
+                border: '1px solid rgba(2, 132, 199, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '0.78rem',
+                color: '#38bdf8'
+              }}>
+                <Mail size={15} />
+                <span>Broadcasting checkpoint will auto-dispatch status report & waybill PDF to: <strong>{selectedConsignment.sender.email}</strong></span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
