@@ -57,3 +57,20 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export async function DELETE() {
+  try {
+    const { resetChatStore } = await import('@/lib/chatStorage');
+    await resetChatStore();
+    return NextResponse.json({
+      success: true,
+      message: 'All chat conversations and messages purged successfully.'
+    });
+  } catch (error) {
+    console.error('Failed to clear chat store:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to clear chat conversations' },
+      { status: 500 }
+    );
+  }
+}

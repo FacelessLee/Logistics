@@ -47,11 +47,47 @@ export default function LiveChatWidget() {
   const inputRef = useRef<HTMLInputElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
+  const conversationRef = useRef<Conversation | null>(null);
+  const soundEnabledRef = useRef<boolean>(soundEnabled);
   const isOperationsPage = pathname?.startsWith('/operations') || pathname?.startsWith('/admin');
+
+  useEffect(() => {
+    conversationRef.current = conversation;
+  }, [conversation]);
+
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
 
   const scrollToBottom = useCallback((smooth = true) => {
     messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'nearest' });
   }, []);
+
+  const handleResetChat = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const newId = `vis-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      localStorage.setItem('navithon_chat_visitor_id', newId);
+      setVisitorId(newId);
+      setConversation(null);
+      setMessages([]);
+      setIsRestoredSession(false);
+      setUnreadCount(0);
+
+      const response = await fetch('/api/chat/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visitorId: newId, currentPage: pathname || '/', location: 'Website visitor' }),
+      });
+      const result = await response.json();
+      if (result.success && result.data) {
+        setConversation(result.data);
+        setMessages(result.messages || []);
+      }
+    } catch (err) {
+      console.error('Failed to reset chat session:', err);
+    }
+  }, [pathname]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -59,33 +95,45 @@ export default function LiveChatWidget() {
     if (!id) {
       id = `vis-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
       localStorage.setItem('navithon_chat_visitor_id', id);
-    } else {
-      window.setTimeout(() => setIsRestoredSession(true), 0);
     }
     window.setTimeout(() => setVisitorId(id), 0);
+
     const teaserTimer = window.setTimeout(() => {
       if (!sessionStorage.getItem('navithon_teaser_dismissed')) setShowTeaser(true);
     }, 3500);
+
     if ('BroadcastChannel' in window) {
       const channel = new BroadcastChannel('navithon_live_chat');
       broadcastChannelRef.current = channel;
       channel.onmessage = (event) => {
-        const { type, data } = event.data;
-        if (type === 'NEW_MESSAGE') {
-          setMessages((previous) => previous.some((message) => message.id === data.message.id) ? previous : [...previous, data.message]);
-          if (data.message.sender === 'agent') {
-            if (soundEnabled) playNotificationChime();
-            setUnreadCount((count) => count + 1);
+        const { type, data } = event.data || {};
+        if (!data) return;
+
+        if (type === 'NEW_MESSAGE' && data.message) {
+          // Strictly ensure message belongs to THIS visitor's active conversation
+          const currentConv = conversationRef.current;
+          if (currentConv && data.message.conversationId === currentConv.id) {
+            setMessages((previous) => previous.some((message) => message.id === data.message.id) ? previous : [...previous, data.message]);
+            if (data.message.sender === 'agent') {
+              if (soundEnabledRef.current) playNotificationChime();
+              setUnreadCount((count) => count + 1);
+            }
           }
         }
-        if (type === 'CONVERSATION_UPDATED') setConversation(data.conversation);
+        if (type === 'CONVERSATION_UPDATED' && data.conversation) {
+          // Strictly ensure conversation belongs to THIS visitor's active conversation
+          const currentConv = conversationRef.current;
+          if (currentConv && data.conversation.id === currentConv.id) {
+            setConversation(data.conversation);
+          }
+        }
       };
     }
     return () => {
       window.clearTimeout(teaserTimer);
       broadcastChannelRef.current?.close();
     };
-  }, [soundEnabled]);
+  }, []);
 
   useEffect(() => {
     if (!visitorId || isOperationsPage) return;
@@ -100,9 +148,11 @@ export default function LiveChatWidget() {
         const result = await response.json();
         if (!mounted || !result.success) return;
         setConversation(result.data);
-        setMessages(result.messages || []);
-        setIsRestoredSession(!result.isNew && (result.messages || []).length > 1);
-        setUnreadCount((result.messages || []).filter((message: ChatMessage) => message.sender === 'agent' && !message.read).length);
+        const incomingMessages = result.messages || [];
+        setMessages(incomingMessages);
+        // Only show restored badge if there was an actual prior conversation beyond the welcome greeting
+        setIsRestoredSession(!result.isNew && incomingMessages.length > 1);
+        setUnreadCount(incomingMessages.filter((message: ChatMessage) => message.sender === 'agent' && !message.read).length);
       } catch (error) {
         console.error('Failed to initialize live chat:', error);
       }
@@ -210,8 +260,49 @@ export default function LiveChatWidget() {
     <div className="live-chat-widget">
       {showTeaser && !isOpen && <div className="live-chat-teaser"><div className="live-chat-teaser-mark"><MessageSquare size={17} /></div><div><div className="live-chat-teaser-heading"><strong>Need a hand?</strong><button onClick={() => setShowTeaser(false)} aria-label="Dismiss chat invitation"><X size={14} /></button></div><button className="live-chat-teaser-copy" onClick={() => { setShowTeaser(false); setIsOpen(true); setUnreadCount(0); }}>Speak with our freight support team about a shipment, rate, or booking.</button></div></div>}
       {isOpen && <section className="live-chat-window" aria-label="Live freight support chat">
-        <header className="live-chat-header"><div className="live-chat-agent"><div className="live-chat-avatar">N</div><div><strong>Freight support</strong><span><i /> Usually replies quickly</span></div></div><div className="live-chat-actions"><button onClick={() => setSoundEnabled(!soundEnabled)} aria-label={soundEnabled ? 'Mute notifications' : 'Enable notifications'}>{soundEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}</button><button onClick={() => setIsOpen(false)} aria-label="Close chat"><ChevronDown size={19} /></button></div></header>
-        {isRestoredSession && <div className="live-chat-restored"><RotateCcw size={13} /> Your previous conversation is here</div>}
+        <header className="live-chat-header">
+          <div className="live-chat-agent">
+            <div className="live-chat-avatar">N</div>
+            <div>
+              <strong>Freight support</strong>
+              <span><i /> Usually replies quickly</span>
+            </div>
+          </div>
+          <div className="live-chat-actions">
+            <button onClick={handleResetChat} aria-label="Start new chat" title="Start new conversation">
+              <RotateCcw size={15} />
+            </button>
+            <button onClick={() => setSoundEnabled(!soundEnabled)} aria-label={soundEnabled ? 'Mute notifications' : 'Enable notifications'}>
+              {soundEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
+            </button>
+            <button onClick={() => setIsOpen(false)} aria-label="Close chat">
+              <ChevronDown size={19} />
+            </button>
+          </div>
+        </header>
+        {isRestoredSession && (
+          <div className="live-chat-restored">
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <RotateCcw size={12} /> Previous conversation restored
+            </span>
+            <button
+              onClick={handleResetChat}
+              style={{
+                marginLeft: 'auto',
+                background: 'none',
+                border: 'none',
+                color: '#38bdf8',
+                textDecoration: 'underline',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: 600,
+                padding: 0
+              }}
+            >
+              Start New Chat
+            </button>
+          </div>
+        )}
         <div className="live-chat-messages"><div className="live-chat-welcome">Welcome. How can we help with your shipment?</div>{messages.map((message) => { const isVisitor = message.sender === 'visitor'; return <div className={`live-chat-message ${isVisitor ? 'is-visitor' : 'is-agent'}`} key={message.id}><span className="live-chat-sender">{isVisitor ? 'You' : 'Support team'}</span>{message.text && <div className="live-chat-bubble">{message.text}</div>}{message.attachment && <a className="live-chat-attachment" href={message.attachment.dataUrl} download={message.attachment.name} target="_blank" rel="noreferrer">{message.attachment.type.startsWith('image/') ? <img src={message.attachment.dataUrl} alt={message.attachment.name} /> : <FileText size={17} />}<span>{message.attachment.name}</span></a>}<span className="live-chat-time">{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {isVisitor && (message.read ? <CheckCheck size={12} /> : <Check size={12} />)}</span></div>; })}<div ref={messagesEndRef} /></div>
         {messages.length <= 3 && <div className="live-chat-prompts">{QUICK_PROMPTS.map((prompt) => <button key={prompt} onClick={() => handleSendMessage(prompt)}>{prompt}</button>)}</div>}
         <form className="live-chat-composer" onSubmit={(event) => { event.preventDefault(); handleSendMessage(); }}>{selectedAttachment && <div className="live-chat-file-preview"><FileText size={15} /><span>{selectedAttachment.name}</span><button type="button" onClick={() => setSelectedAttachment(undefined)} aria-label="Remove attachment"><X size={14} /></button></div>}<div className="live-chat-compose-row"><input ref={attachmentInputRef} type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onChange={handleAttachment} hidden /><button type="button" className="live-chat-icon-button" onClick={() => attachmentInputRef.current?.click()} aria-label="Attach a file" title="Attach a file"><Paperclip size={18} /></button><input ref={inputRef} value={inputText} onChange={(event) => setInputText(event.target.value)} placeholder="Write a message..." disabled={isSubmitting} aria-label="Message" /><button className="live-chat-send" type="submit" disabled={(!inputText.trim() && !selectedAttachment) || isSubmitting} aria-label="Send message"><Send size={17} /></button></div><small>Files up to 5 MB</small></form>

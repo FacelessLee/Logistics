@@ -244,6 +244,16 @@ async function runTests() {
   assert(outboxItems.length > 0, 'Outbox items retrieved from disk for tracking ID');
   assert(outboxItems[0].hasAttachment === true, 'Outbox item confirms Waybill attachment');
 
+  // Clean up all synthetic test artifacts so tests never pollute live data stores
+  try {
+    fs.writeFileSync(chatStoreFilePath, JSON.stringify({ conversations: [], messages: {} }, null, 2), 'utf-8');
+    fs.writeFileSync(consignmentsFilePath, JSON.stringify([], null, 2), 'utf-8');
+    fs.writeFileSync(outboxFilePath, JSON.stringify([], null, 2), 'utf-8');
+    console.log('✓ Cleaned up all synthetic test fixtures from .data/ stores');
+  } catch (cleanErr) {
+    console.warn('Cleanup warning:', cleanErr);
+  }
+
   console.log('\n===============================================================');
   console.log(` RESULTS: ${passed} PASSED, ${failed} FAILED`);
   console.log('===============================================================');

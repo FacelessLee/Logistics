@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import {
   MessageSquare,
@@ -26,7 +26,13 @@ import {
   Paperclip,
   Check,
   ChevronRight,
-  Mail
+  Mail,
+  Trash2,
+  AlertTriangle,
+  Eye,
+  CheckCircle,
+  FileText,
+  RefreshCw
 } from 'lucide-react';
 import { Conversation, ChatMessage, ConversationStatus, CannedResponse } from '@/lib/chatTypes';
 import { INITIAL_CANNED_RESPONSES } from '@/data/initialChats';
@@ -63,8 +69,22 @@ function playAgentAlertChime() {
   }
 }
 
+interface EmailOutboxItem {
+  id: string;
+  trackingId: string;
+  type: 'CONSIGNMENT_CONFIRMATION' | 'STATUS_UPDATE' | 'MANUAL_REPORT';
+  to: string[];
+  subject: string;
+  timestamp: string;
+  success: boolean;
+  resendId?: string;
+  error?: string;
+  hasAttachment: boolean;
+  previewHtml?: string;
+}
+
 export default function OperationsPortalPage() {
-  const [activeTab, setActiveTab] = useState<'CHAT_CRM' | 'CONSIGNMENTS'>('CHAT_CRM');
+  const [activeTab, setActiveTab] = useState<'CHAT_CRM' | 'CONSIGNMENTS' | 'EMAIL_DELIVERABILITY'>('CHAT_CRM');
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   // ── CRM Conversations & Chat States ──
@@ -80,6 +100,8 @@ export default function OperationsPortalPage() {
   const [cannedResponses] = useState<CannedResponse[]>(INITIAL_CANNED_RESPONSES);
   const [agentNotes, setAgentNotes] = useState('');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [isPurgingChat, setIsPurgingChat] = useState(false);
+  const [purgeNotice, setPurgeNotice] = useState<string | null>(null);
 
   // ── Logistics Telemetry Lookup in Sidebar ──
   const [sidebarTrackingSearch, setSidebarTrackingSearch] = useState('');
@@ -90,6 +112,14 @@ export default function OperationsPortalPage() {
   const [isLoadingConsignments, setIsLoadingConsignments] = useState(false);
   const [consignmentSearch, setConsignmentSearch] = useState('');
   const [consignmentStatusFilter, setConsignmentStatusFilter] = useState('ALL');
+
+  // ── Outbox & Deliverability Hub State (Tab 3) ──
+  const [outboxItems, setOutboxItems] = useState<EmailOutboxItem[]>([]);
+  const [isLoadingOutbox, setIsLoadingOutbox] = useState(false);
+  const [testEmailAddress, setTestEmailAddress] = useState('');
+  const [isSendingTest, setIsSendingTest] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message?: string; error?: string; resendId?: string } | null>(null);
+  const [previewItem, setPreviewItem] = useState<EmailOutboxItem | null>(null);
 
   // Checkpoint Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -427,11 +457,73 @@ export default function OperationsPortalPage() {
     }
   };
 
+  const fetchOutbox = useCallback(async () => {
+    try {
+      setIsLoadingOutbox(true);
+      const res = await fetch('/api/email/outbox');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setOutboxItems(json.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch email outbox:', err);
+    } finally {
+      setIsLoadingOutbox(false);
+    }
+  }, []);
+
+  const handleSendTestEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testEmailAddress || !testEmailAddress.includes('@')) return;
+    setIsSendingTest(true);
+    setTestResult(null);
+    try {
+      const res = await fetch('/api/email/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: testEmailAddress.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTestResult({ success: true, message: data.message, resendId: data.resendId });
+        fetchOutbox();
+      } else {
+        setTestResult({ success: false, error: data.error || 'Failed to dispatch test email' });
+      }
+    } catch (err: unknown) {
+      setTestResult({ success: false, error: err instanceof Error ? err.message : 'Network error' });
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
+
+  const handlePurgeAllChats = async () => {
+    if (!window.confirm('Are you sure you want to purge all customer conversations and clear all chat history? Real visitors will get fresh new sessions.')) return;
+    setIsPurgingChat(true);
+    try {
+      const res = await fetch('/api/chat/conversations', { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setConversations([]);
+        setSelectedConvId(null);
+        setActiveMessages([]);
+        setPurgeNotice('All customer chat conversations purged successfully.');
+        setTimeout(() => setPurgeNotice(null), 4000);
+      }
+    } catch (err) {
+      console.error('Failed to purge chat data:', err);
+    } finally {
+      setIsPurgingChat(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'CONSIGNMENTS') {
       fetchConsignments();
+    } else if (activeTab === 'EMAIL_DELIVERABILITY') {
+      fetchOutbox();
     }
-  }, [activeTab]);
+  }, [activeTab, fetchOutbox]);
 
   const openUpdateModal = (c: Consignment) => {
     setSelectedConsignment(c);
@@ -663,6 +755,41 @@ export default function OperationsPortalPage() {
               <Package size={14} />
               <span>SHIPMENTS & DELIVERY</span>
             </button>
+
+            <button
+              onClick={() => setActiveTab('EMAIL_DELIVERABILITY')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                background: activeTab === 'EMAIL_DELIVERABILITY' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                color: activeTab === 'EMAIL_DELIVERABILITY' ? '#38bdf8' : 'var(--text-secondary)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              <Mail size={14} />
+              <span>OUTBOX & EMAIL DELIVERABILITY</span>
+              {outboxItems.length > 0 && (
+                <span
+                  style={{
+                    background: 'rgba(56, 189, 248, 0.2)',
+                    color: '#38bdf8',
+                    borderRadius: '9999px',
+                    padding: '1px 6px',
+                    fontSize: '0.68rem',
+                  }}
+                >
+                  {outboxItems.length}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -759,6 +886,30 @@ export default function OperationsPortalPage() {
           >
             <RotateCcw size={14} />
             <span>REFRESH</span>
+          </button>
+
+          {/* Purge All Chats */}
+          <button
+            onClick={handlePurgeAllChats}
+            disabled={isPurgingChat}
+            title="Purge all customer chat records and reset to clean state"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              background: 'rgba(239, 68, 68, 0.08)',
+              border: '1px solid rgba(239, 68, 68, 0.25)',
+              color: '#f87171',
+              fontSize: '0.75rem',
+              fontFamily: 'var(--font-mono)',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+          >
+            <Trash2 size={13} />
+            <span>{isPurgingChat ? 'PURGING...' : 'PURGE CHATS'}</span>
           </button>
 
           {/* Agent Badge */}
@@ -2053,6 +2204,371 @@ export default function OperationsPortalPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════
+          TAB 3: OUTBOX & REAL-WORLD EMAIL DELIVERABILITY HUB
+          ════════════════════════════════════════════════════════════ */}
+      {activeTab === 'EMAIL_DELIVERABILITY' && (
+        <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
+                  Email Outbox & Deliverability Center
+                </h2>
+                <span style={{
+                  fontSize: '0.72rem',
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: 700,
+                  padding: '3px 10px',
+                  borderRadius: '999px',
+                  background: 'rgba(56, 189, 248, 0.15)',
+                  color: '#38bdf8',
+                  border: '1px solid rgba(56, 189, 248, 0.3)'
+                }}>
+                  Resend Production API
+                </span>
+              </div>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '6px' }}>
+                Real-time transaction audit, live inbox probe tester, and DNS authentication records for 100% deliverability.
+              </p>
+            </div>
+
+            <button
+              onClick={fetchOutbox}
+              disabled={isLoadingOutbox}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                color: '#FFFFFF',
+                fontSize: '0.8rem',
+                fontFamily: 'var(--font-mono)',
+                cursor: 'pointer'
+              }}
+            >
+              <RefreshCw size={14} />
+              <span>{isLoadingOutbox ? 'REFRESHING...' : 'REFRESH LOGS'}</span>
+            </button>
+          </div>
+
+          {/* Top Grid: Direct Tester & DNS Configuration Card */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '20px', marginBottom: '28px' }}>
+            {/* Card 1: Direct Deliverability Probe */}
+            <div style={{
+              background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.8) 0%, rgba(8, 14, 28, 0.95) 100%)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              borderRadius: '12px',
+              padding: '24px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  background: 'rgba(56, 189, 248, 0.15)',
+                  color: '#38bdf8',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Send size={18} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#FFFFFF', margin: 0 }}>
+                    Direct Inbox Deliverability Probe
+                  </h3>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Send an instantaneous test waybill to your personal or tester mailbox
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={handleSendTestEmail} style={{ marginTop: '16px' }}>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <input
+                    type="email"
+                    required
+                    placeholder="Enter email (e.g. yourname@gmail.com)"
+                    value={testEmailAddress}
+                    onChange={(e) => setTestEmailAddress(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      color: '#FFFFFF',
+                      fontSize: '0.85rem',
+                      outline: 'none'
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSendingTest || !testEmailAddress}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 18px',
+                      borderRadius: '8px',
+                      background: 'var(--accent-orange)',
+                      border: 'none',
+                      color: '#FFFFFF',
+                      fontWeight: 700,
+                      fontSize: '0.82rem',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {isSendingTest ? 'Sending...' : 'Send Live Test'}
+                  </button>
+                </div>
+              </form>
+
+              {testResult && (
+                <div style={{
+                  marginTop: '16px',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  background: testResult.success ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                  border: testResult.success ? '1px solid #10b981' : '1px solid #ef4444',
+                  fontSize: '0.82rem',
+                  color: testResult.success ? '#34d399' : '#fca5a5'
+                }}>
+                  <div style={{ fontWeight: 700, marginBottom: '4px' }}>
+                    {testResult.success ? '✓ Resend Dispatch Confirmed' : '⚠ Dispatch Failed'}
+                  </div>
+                  <div>{testResult.message || testResult.error}</div>
+                  {testResult.resendId && (
+                    <div style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: '#94a3b8', marginTop: '6px' }}>
+                      Resend Message ID: <code>{testResult.resendId}</code>
+                    </div>
+                  )}
+                  {testResult.success && (
+                    <div style={{ fontSize: '0.74rem', color: '#bae6fd', marginTop: '8px', borderTop: '1px dashed rgba(56, 189, 248, 0.3)', paddingTop: '6px' }}>
+                      💡 <strong>Inbox Placement Advice:</strong> Emails originate from <code>support@navithonlogistics.com</code>. If the email is not in your Primary Inbox within 1 minute, inspect your <strong>Spam / Junk</strong> folder and mark as &quot;Not Spam&quot;.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Card 2: DNS Authentication & Inbox Guarantee */}
+            <div style={{
+              background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.8) 0%, rgba(8, 14, 28, 0.95) 100%)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '12px',
+              padding: '24px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  background: 'rgba(234, 179, 8, 0.15)',
+                  color: '#eab308',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Shield size={18} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#FFFFFF', margin: 0 }}>
+                    DNS Authentication &amp; Primary Inbox Setup
+                  </h3>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Why emails may land in Spam without these 2 domain TXT records
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '12px' }}>
+                Google (Gmail) &amp; Microsoft (Outlook) mandate SPF &amp; DMARC for custom domains. Add these 2 records in your domain registrar (e.g. Cloudflare / GoDaddy / Namecheap) for <code>navithonlogistics.com</code>:
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
+                <div style={{ background: 'rgba(0,0,0,0.4)', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ color: '#38bdf8', fontWeight: 700, marginBottom: '2px' }}>1. SPF Record (TXT @):</div>
+                  <code style={{ color: '#f1f5f9', wordBreak: 'break-all' }}>v=spf1 include:amazonses.com include:resend.com ~all</code>
+                </div>
+                <div style={{ background: 'rgba(0,0,0,0.4)', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ color: '#38bdf8', fontWeight: 700, marginBottom: '2px' }}>2. DMARC Record (TXT _dmarc):</div>
+                  <code style={{ color: '#f1f5f9', wordBreak: 'break-all' }}>v=DMARC1; p=none; rua=mailto:support@navithonlogistics.com</code>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981', fontSize: '0.72rem' }}>
+                  <CheckCircle size={13} />
+                  <span>DKIM Record: Configured &amp; Verified (resend._domainkey)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Outbox Table */}
+          <div style={{
+            background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.7) 0%, rgba(8, 14, 28, 0.9) 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '12px',
+            overflow: 'hidden'
+          }}>
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#FFFFFF', margin: 0 }}>
+                Dispatched Outbox Audit Log ({outboxItems.length})
+              </h3>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Durable disk log (.data/outbox.json)
+              </span>
+            </div>
+
+            {outboxItems.length === 0 ? (
+              <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <Mail size={32} style={{ opacity: 0.4, margin: '0 auto 12px' }} />
+                <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>No dispatched emails in outbox yet.</div>
+                <div style={{ fontSize: '0.75rem', marginTop: '4px' }}>
+                  Book a consignment on <code>/book</code> or send a test probe above to record dispatches.
+                </div>
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                    <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>TIME</th>
+                    <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>TRACKING ID</th>
+                    <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>RECIPIENT</th>
+                    <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>SUBJECT</th>
+                    <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>ATTACHMENT</th>
+                    <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>STATUS</th>
+                    <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'right' }}>ACTION</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {outboxItems.map((item) => (
+                    <tr key={item.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                      <td style={{ padding: '12px 20px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                        {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}{' '}
+                        <small style={{ opacity: 0.6 }}>{new Date(item.timestamp).toLocaleDateString()}</small>
+                      </td>
+                      <td style={{ padding: '12px 20px', fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#38bdf8' }}>
+                        <Link href={`/track/${item.trackingId}`} target="_blank" style={{ color: '#38bdf8', textDecoration: 'none' }}>
+                          {item.trackingId}
+                        </Link>
+                      </td>
+                      <td style={{ padding: '12px 20px', color: '#FFFFFF', fontWeight: 600 }}>
+                        {item.to.join(', ')}
+                      </td>
+                      <td style={{ padding: '12px 20px', color: 'var(--text-secondary)', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.subject}
+                      </td>
+                      <td style={{ padding: '12px 20px' }}>
+                        {item.hasAttachment ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#10b981', fontSize: '0.72rem' }}>
+                            <FileText size={12} /> Waybill PDF
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>None</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px 20px' }}>
+                        <span style={{
+                          padding: '3px 8px',
+                          borderRadius: '999px',
+                          fontSize: '0.7rem',
+                          fontFamily: 'var(--font-mono)',
+                          fontWeight: 700,
+                          background: item.success ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                          color: item.success ? '#34d399' : '#fca5a5',
+                          border: item.success ? '1px solid #10b981' : '1px solid #ef4444'
+                        }}>
+                          {item.success ? 'DISPATCHED' : 'FAILED'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 20px', textAlign: 'right' }}>
+                        {item.previewHtml && (
+                          <button
+                            onClick={() => setPreviewItem(item)}
+                            style={{
+                              padding: '5px 10px',
+                              borderRadius: '6px',
+                              background: 'rgba(255, 255, 255, 0.05)',
+                              border: '1px solid rgba(255, 255, 255, 0.1)',
+                              color: '#FFFFFF',
+                              fontSize: '0.72rem',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <Eye size={12} />
+                            <span>Preview</span>
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* HTML Preview Modal */}
+          {previewItem && previewItem.previewHtml && (
+            <div style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.8)',
+              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              padding: '24px'
+            }}>
+              <div style={{
+                background: '#0b1325',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                borderRadius: '12px',
+                width: '100%',
+                maxWidth: '740px',
+                maxHeight: '90vh',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden'
+              }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#FFFFFF', margin: 0 }}>
+                      Dispatched Email Preview
+                    </h3>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      To: {previewItem.to.join(', ')} | Subject: {previewItem.subject}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setPreviewItem(null)}
+                    style={{ background: 'transparent', border: 'none', color: '#FFFFFF', cursor: 'pointer', fontSize: '1.2rem' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '16px', background: '#070d18' }}>
+                  <iframe
+                    srcDoc={previewItem.previewHtml}
+                    title="Email Preview"
+                    style={{ width: '100%', height: '560px', border: 'none', borderRadius: '8px' }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -72,10 +72,9 @@ function writeChatStoreToDisk(store: ChatStoreData): void {
 }
 
 function getMemoryStore(): ChatStoreData {
-  if (!globalThis.__GLOBAL_CHAT_STORE__) {
-    globalThis.__GLOBAL_CHAT_STORE__ = readChatStoreFromDisk();
-  }
-  return globalThis.__GLOBAL_CHAT_STORE__;
+  const disk = readChatStoreFromDisk();
+  globalThis.__GLOBAL_CHAT_STORE__ = disk;
+  return disk;
 }
 
 // Asynchronously sync with MongoDB if available without blocking local execution
