@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { Consignment, Checkpoint, ShipmentStatus } from './types';
 import { INITIAL_CONSIGNMENTS } from '../data/initialConsignments';
-import { getDatabase, isMongoConfigured, safeGetDatabase } from './mongodb';
+import { supabase, isSupabaseConfigured } from './supabase';
 
 const DATA_DIR = path.join(process.cwd(), '.data');
 const CONSIGNMENTS_FILE = path.join(DATA_DIR, 'consignments.json');
@@ -22,7 +22,6 @@ function ensureDataDir() {
 function readConsignmentsFromDisk(): Consignment[] {
   ensureDataDir();
   if (!fs.existsSync(CONSIGNMENTS_FILE)) {
-    // If no file exists, start clean (empty array)
     const initial = Array.isArray(INITIAL_CONSIGNMENTS) ? INITIAL_CONSIGNMENTS : [];
     writeConsignmentsToDisk(initial);
     return initial;
@@ -54,74 +53,86 @@ function writeConsignmentsToDisk(consignments: Consignment[]): void {
   }
 }
 
-async function syncToMongo(consignment: Consignment): Promise<void> {
-  if (!isMongoConfigured()) return;
+export async function syncConsignmentToSupabase(consignment: Consignment): Promise<void> {
+  if (!isSupabaseConfigured()) return;
   try {
-    const db = await safeGetDatabase();
-    if (!db) return;
-    await db.collection('consignments').updateOne(
-      { trackingId: consignment.trackingId.toUpperCase() },
-      { $set: consignment },
-      { upsert: true }
+    const { error } = await supabase.from('consignments').upsert(
+      {
+        tracking_id: consignment.trackingId.toUpperCase(),
+        status: consignment.status,
+        origin_location: consignment.originLocation,
+        destination_location: consignment.destinationLocation,
+        current_location: consignment.currentLocation,
+        created_at: consignment.createdAt,
+        updated_at: new Date().toISOString(),
+        data: consignment,
+      },
+      { onConflict: 'tracking_id' }
     );
+    if (error) {
+      console.warn('[Storage] Supabase consignment sync warning:', error.message);
+    }
   } catch (err) {
-    console.warn('[Storage] MongoDB sync warning (persisted locally to disk):', err instanceof Error ? err.message : err);
+    console.warn('[Storage] Supabase consignment sync exception:', err instanceof Error ? err.message : err);
+  }
+}
+
+export async function syncWithSupabase(): Promise<void> {
+  if (!isSupabaseConfigured()) return;
+  try {
+    const { data: remoteRecords, error } = await supabase
+      .from('consignments')
+      .select('tracking_id, data, updated_at')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('[Storage] Supabase hydration warning:', error.message);
+      return;
+    }
+
+    const store = getStore();
+
+    if (remoteRecords && remoteRecords.length > 0) {
+      let updated = false;
+      for (const row of remoteRecords) {
+        if (!row.data) continue;
+        const item = row.data as Consignment;
+        const normId = item.trackingId.toUpperCase();
+        const existingIdx = store.findIndex((c) => c.trackingId.toUpperCase() === normId);
+        if (existingIdx === -1) {
+          store.unshift(item);
+          updated = true;
+        } else {
+          // Remote overrides local
+          store[existingIdx] = item;
+          updated = true;
+        }
+      }
+      if (updated) {
+        writeConsignmentsToDisk(store);
+      }
+    } else if (store.length > 0) {
+      // Local has records but remote is empty: push local records to Supabase
+      for (const c of store) {
+        await syncConsignmentToSupabase(c);
+      }
+    }
+  } catch (err) {
+    console.warn('[Storage] Supabase hydration error:', err);
   }
 }
 
 function getStore(): Consignment[] {
   if (!globalThis.__CONSIGNMENTS_STORE__) {
-    // Load persisted consignments from disk
     globalThis.__CONSIGNMENTS_STORE__ = readConsignmentsFromDisk();
-
-    // Asynchronously sync with MongoDB if available
-    if (isMongoConfigured()) {
-      safeGetDatabase()
-        .then(async (db) => {
-          if (!db) return;
-          try {
-            // Purge demo records from MongoDB if present
-            await db.collection('consignments').deleteMany({
-              trackingId: { $in: ['TRK-2026-89420', 'TRK-2026-90214', 'TRK-2026-11847', 'TRK-2026-55901', 'SEA-4011-SHA-ROT'] }
-            });
-
-            const docs = await db.collection<Consignment>('consignments').find().toArray();
-            if (docs && docs.length > 0 && globalThis.__CONSIGNMENTS_STORE__) {
-              let updated = false;
-              docs.forEach((doc) => {
-                const idx = globalThis.__CONSIGNMENTS_STORE__!.findIndex(
-                  (c) => c.trackingId.toUpperCase() === doc.trackingId.toUpperCase()
-                );
-                if (idx === -1) {
-                  globalThis.__CONSIGNMENTS_STORE__!.unshift(doc);
-                  updated = true;
-                } else {
-                  // Merge if remote is newer
-                  globalThis.__CONSIGNMENTS_STORE__![idx] = doc;
-                  updated = true;
-                }
-              });
-              if (updated) {
-                writeConsignmentsToDisk(globalThis.__CONSIGNMENTS_STORE__!);
-              }
-            } else if (globalThis.__CONSIGNMENTS_STORE__ && globalThis.__CONSIGNMENTS_STORE__.length > 0) {
-              // Push local records to Mongo
-              for (const c of globalThis.__CONSIGNMENTS_STORE__) {
-                await syncToMongo(c);
-              }
-            }
-          } catch (err) {
-            console.warn('[Storage] MongoDB hydration error:', err);
-          }
-        })
-        .catch(() => {});
+    if (isSupabaseConfigured()) {
+      syncWithSupabase().catch(() => {});
     }
   }
   return globalThis.__CONSIGNMENTS_STORE__!;
 }
 
 export function getAllConsignments(): Consignment[] {
-  // Always refresh from disk if store is empty or to ensure cross-process sync
   const store = getStore();
   const disk = readConsignmentsFromDisk();
   if (disk.length !== store.length) {
@@ -131,11 +142,48 @@ export function getAllConsignments(): Consignment[] {
   return store;
 }
 
+export async function getAllConsignmentsAsync(): Promise<Consignment[]> {
+  await syncWithSupabase().catch(() => {});
+  return getAllConsignments();
+}
+
 export function getConsignmentById(id: string): Consignment | undefined {
   if (!id) return undefined;
   const normalized = id.trim().toUpperCase();
   const store = getAllConsignments();
   return store.find((c) => c.trackingId.toUpperCase() === normalized);
+}
+
+export async function getConsignmentByIdAsync(id: string): Promise<Consignment | undefined> {
+  if (!id) return undefined;
+  const normalized = id.trim().toUpperCase();
+
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('consignments')
+        .select('data')
+        .eq('tracking_id', normalized)
+        .maybeSingle();
+
+      if (!error && data?.data) {
+        const remote = data.data as Consignment;
+        const store = getAllConsignments();
+        const idx = store.findIndex((c) => c.trackingId.toUpperCase() === normalized);
+        if (idx === -1) {
+          store.unshift(remote);
+        } else {
+          store[idx] = remote;
+        }
+        writeConsignmentsToDisk(store);
+        return remote;
+      }
+    } catch {
+      // Fallback to local
+    }
+  }
+
+  return getConsignmentById(id);
 }
 
 /**
@@ -162,8 +210,8 @@ export function addConsignment(newConsignment: Consignment): Consignment {
   // Immediately persist to disk atomically
   writeConsignmentsToDisk(store);
 
-  // Sync to MongoDB asynchronously in background
-  syncToMongo(newConsignment);
+  // Sync to Supabase in background
+  syncConsignmentToSupabase(newConsignment).catch(() => {});
 
   return newConsignment;
 }
@@ -185,7 +233,7 @@ export function updateConsignment(
 
   globalThis.__CONSIGNMENTS_STORE__ = store;
   writeConsignmentsToDisk(store);
-  syncToMongo(store[index]);
+  syncConsignmentToSupabase(store[index]).catch(() => {});
 
   return store[index];
 }
@@ -243,7 +291,7 @@ export function addCheckpointToConsignment(
 
   globalThis.__CONSIGNMENTS_STORE__ = store;
   writeConsignmentsToDisk(store);
-  syncToMongo(consignment);
+  syncConsignmentToSupabase(consignment).catch(() => {});
 
   return consignment;
 }
@@ -251,5 +299,12 @@ export function addCheckpointToConsignment(
 export function resetToSeedData(): Consignment[] {
   globalThis.__CONSIGNMENTS_STORE__ = [];
   writeConsignmentsToDisk([]);
+
+  if (isSupabaseConfigured()) {
+    Promise.resolve(
+      supabase.from('consignments').delete().neq('tracking_id', '__never_match__')
+    ).catch(() => {});
+  }
+
   return [];
 }

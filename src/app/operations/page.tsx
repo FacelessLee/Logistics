@@ -2217,23 +2217,11 @@ export default function OperationsPortalPage() {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
-                  Email Outbox & Deliverability Center
+                  Email Outbox &amp; Deliverability Center
                 </h2>
-                <span style={{
-                  fontSize: '0.72rem',
-                  fontFamily: 'var(--font-mono)',
-                  fontWeight: 700,
-                  padding: '3px 10px',
-                  borderRadius: '999px',
-                  background: 'rgba(56, 189, 248, 0.15)',
-                  color: '#38bdf8',
-                  border: '1px solid rgba(56, 189, 248, 0.3)'
-                }}>
-                  Resend Production API
-                </span>
               </div>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '6px' }}>
-                Real-time transaction audit, live inbox probe tester, and DNS authentication records for 100% deliverability.
+                Real-time transaction audit and live inbox probe tester.
               </p>
             </div>
 
@@ -2259,9 +2247,8 @@ export default function OperationsPortalPage() {
             </button>
           </div>
 
-          {/* Top Grid: Direct Tester & DNS Configuration Card */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '20px', marginBottom: '28px' }}>
-            {/* Card 1: Direct Deliverability Probe */}
+          {/* Direct Deliverability Probe Card */}
+          <div style={{ marginBottom: '28px' }}>
             <div style={{
               background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.8) 0%, rgba(8, 14, 28, 0.95) 100%)',
               border: '1px solid rgba(56, 189, 248, 0.3)',
@@ -2354,61 +2341,11 @@ export default function OperationsPortalPage() {
                   )}
                   {testResult.success && (
                     <div style={{ fontSize: '0.74rem', color: '#bae6fd', marginTop: '8px', borderTop: '1px dashed rgba(56, 189, 248, 0.3)', paddingTop: '6px' }}>
-                      💡 <strong>Inbox Placement Advice:</strong> Emails originate from <code>support@navithonlogistics.com</code>. If the email is not in your Primary Inbox within 1 minute, inspect your <strong>Spam / Junk</strong> folder and mark as &quot;Not Spam&quot;.
+                      💡 <strong>Inbox Placement Advice:</strong> Emails originate from <code>dispatch@navithonlogistics.com</code>. If the email is not in your Primary Inbox within 1 minute, inspect your <strong>Spam / Junk</strong> folder and mark as &quot;Not Spam&quot;.
                     </div>
                   )}
                 </div>
               )}
-            </div>
-
-            {/* Card 2: DNS Authentication & Inbox Guarantee */}
-            <div style={{
-              background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.8) 0%, rgba(8, 14, 28, 0.95) 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '12px',
-              padding: '24px',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
-                  background: 'rgba(234, 179, 8, 0.15)',
-                  color: '#eab308',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <Shield size={18} />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#FFFFFF', margin: 0 }}>
-                    DNS Authentication &amp; Primary Inbox Setup
-                  </h3>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Why emails may land in Spam without these 2 domain TXT records
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '12px' }}>
-                Google (Gmail) &amp; Microsoft (Outlook) mandate SPF &amp; DMARC for custom domains. Add these 2 records in your domain registrar (e.g. Cloudflare / GoDaddy / Namecheap) for <code>navithonlogistics.com</code>:
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
-                <div style={{ background: 'rgba(0,0,0,0.4)', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div style={{ color: '#38bdf8', fontWeight: 700, marginBottom: '2px' }}>1. SPF Record (TXT @):</div>
-                  <code style={{ color: '#f1f5f9', wordBreak: 'break-all' }}>v=spf1 include:amazonses.com include:resend.com ~all</code>
-                </div>
-                <div style={{ background: 'rgba(0,0,0,0.4)', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div style={{ color: '#38bdf8', fontWeight: 700, marginBottom: '2px' }}>2. DMARC Record (TXT _dmarc):</div>
-                  <code style={{ color: '#f1f5f9', wordBreak: 'break-all' }}>v=DMARC1; p=none; rua=mailto:support@navithonlogistics.com</code>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981', fontSize: '0.72rem' }}>
-                  <CheckCircle size={13} />
-                  <span>DKIM Record: Configured &amp; Verified (resend._domainkey)</span>
-                </div>
-              </div>
             </div>
           </div>
 

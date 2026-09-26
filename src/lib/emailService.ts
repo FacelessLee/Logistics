@@ -94,11 +94,11 @@ function getResendClient(): Resend | null {
 }
 
 function getSenderAddress(): string {
-  return process.env.EMAIL_FROM?.trim() || 'Navithon Logistics <support@navithonlogistics.com>';
+  return process.env.EMAIL_FROM?.trim() || 'Navithon Logistics <dispatch@navithonlogistics.com>';
 }
 
 function getReplyToAddress(): string {
-  return 'support@navithonlogistics.com';
+  return 'dispatch@navithonlogistics.com';
 }
 
 function getBaseUrl(): string {

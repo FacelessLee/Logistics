@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getConsignmentById, addCheckpointToConsignment } from '@/lib/storage';
+import { getConsignmentByIdAsync, addCheckpointToConsignment } from '@/lib/storage';
 import { sendStatusUpdateEmail } from '@/lib/emailService';
 import { ShipmentStatus } from '@/lib/types';
 
@@ -20,7 +20,7 @@ export async function POST(
       );
     }
 
-    const existing = getConsignmentById(id);
+    const existing = await getConsignmentByIdAsync(id);
     if (!existing) {
       return NextResponse.json(
         { success: false, error: `Consignment with ID "${id}" not found.` },

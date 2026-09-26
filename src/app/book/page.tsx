@@ -381,7 +381,7 @@ function BookingFormContent() {
                   </div>
 
                   <div style={{ marginTop: '12px', fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic', lineHeight: 1.5 }}>
-                    💡 <strong>Delivery Note:</strong> Emails are sent from <strong>support@navithonlogistics.com</strong>. If the email doesn&apos;t appear in your Primary Inbox within 1–2 minutes, please inspect your <strong>Spam / Junk / Promotions</strong> folder.
+                    💡 <strong>Delivery Note:</strong> Emails are sent from <strong>dispatch@navithonlogistics.com</strong>. If the email doesn&apos;t appear in your Primary Inbox within 1–2 minutes, please inspect your <strong>Spam / Junk / Promotions</strong> folder.
                   </div>
                 </div>
               </div>

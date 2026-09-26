@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const sender = process.env.EMAIL_FROM?.trim() || 'Navithon Logistics <support@navithonlogistics.com>';
+    const sender = process.env.EMAIL_FROM?.trim() || 'Navithon Logistics <dispatch@navithonlogistics.com>';
     const subject = `[Navithon Logistics] Official Waybill & Verification Delivery Test`;
     const trackingId = sample?.trackingId || 'TRK-VERIFY-001';
 
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
 
     const sendRes = await resend.emails.send({
       from: sender,
-      replyTo: 'support@navithonlogistics.com',
+      replyTo: 'dispatch@navithonlogistics.com',
       to: [targetEmail],
       subject,
       html,

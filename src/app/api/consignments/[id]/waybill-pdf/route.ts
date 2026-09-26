@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getConsignmentById } from '@/lib/storage';
+import { getConsignmentByIdAsync } from '@/lib/storage';
 import { generateWaybillPdf } from '@/lib/waybillPdf';
 
 interface RouteContext {
@@ -19,7 +19,7 @@ export async function GET(
       );
     }
 
-    const consignment = getConsignmentById(id);
+    const consignment = await getConsignmentByIdAsync(id);
     if (!consignment) {
       return NextResponse.json(
         { success: false, error: `Consignment with ID "${id}" not found.` },

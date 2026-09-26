@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllConsignments, addConsignment, getConsignmentById } from '@/lib/storage';
+import { getAllConsignmentsAsync, addConsignment, getConsignmentByIdAsync } from '@/lib/storage';
 import { generateTrackingId } from '@/lib/utils';
 import { Consignment, Checkpoint } from '@/lib/types';
 import { sendNewConsignmentEmail } from '@/lib/emailService';
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const query = searchParams.get('q')?.toLowerCase().trim();
     const status = searchParams.get('status');
 
-    let consignments = getAllConsignments();
+    let consignments = await getAllConsignmentsAsync();
 
     if (query) {
       consignments = consignments.filter((c) =>
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     // Idempotency Check: if trackingId was explicitly provided and already registered, return existing record
     if (body.trackingId && typeof body.trackingId === 'string') {
-      const existing = getConsignmentById(body.trackingId.trim());
+      const existing = await getConsignmentByIdAsync(body.trackingId.trim());
       if (existing) {
         return NextResponse.json({
           success: true,

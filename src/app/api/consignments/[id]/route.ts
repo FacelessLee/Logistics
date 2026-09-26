@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getConsignmentById, updateConsignment, addCheckpointToConsignment } from '@/lib/storage';
+import { getConsignmentByIdAsync, updateConsignment, addCheckpointToConsignment } from '@/lib/storage';
 import { sendStatusUpdateEmail } from '@/lib/emailService';
 
 interface RouteContext {
@@ -19,7 +19,7 @@ export async function GET(
       );
     }
 
-    const consignment = getConsignmentById(id);
+    const consignment = await getConsignmentByIdAsync(id);
     if (!consignment) {
       return NextResponse.json(
         { success: false, error: `No consignment found with tracking ID "${id}".` },
@@ -48,7 +48,7 @@ export async function PATCH(
     const { id } = await context.params;
     const body = await request.json();
 
-    const existing = getConsignmentById(id);
+    const existing = await getConsignmentByIdAsync(id);
     if (!existing) {
       return NextResponse.json(
         { success: false, error: `Consignment "${id}" not found.` },

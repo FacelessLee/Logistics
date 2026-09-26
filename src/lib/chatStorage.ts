@@ -2,13 +2,10 @@ import fs from 'fs';
 import path from 'path';
 import { Conversation, ChatMessage, ChatAttachment, MessageSender, ConversationStatus, VisitorMetadata } from './chatTypes';
 import { INITIAL_CONVERSATIONS, INITIAL_MESSAGES } from '../data/initialChats';
-import { isMongoConfigured, safeGetDatabase } from './mongodb';
+import { supabase, isSupabaseConfigured } from './supabase';
 
 const DATA_DIR = path.join(process.cwd(), '.data');
 const CHAT_STORE_FILE = path.join(DATA_DIR, 'chat-store.json');
-
-const CONVERSATIONS_COLLECTION = 'conversations';
-const MESSAGES_COLLECTION = 'messages';
 
 interface ChatStoreData {
   conversations: Conversation[];
@@ -77,80 +74,107 @@ function getMemoryStore(): ChatStoreData {
   return disk;
 }
 
-// Asynchronously sync with MongoDB if available without blocking local execution
-async function syncConversationToMongo(conv: Conversation): Promise<void> {
-  if (!isMongoConfigured()) return;
+export async function syncConversationToSupabase(conv: Conversation): Promise<void> {
+  if (!isSupabaseConfigured()) return;
   try {
-    const db = await safeGetDatabase();
-    if (!db) return;
-    await db.collection<Conversation>(CONVERSATIONS_COLLECTION).updateOne(
-      { id: conv.id },
-      { $set: conv },
-      { upsert: true }
+    const { error } = await supabase.from('conversations').upsert(
+      {
+        id: conv.id,
+        visitor_id: conv.visitorId,
+        visitor_name: conv.visitorName,
+        visitor_email: conv.visitorEmail || null,
+        status: conv.status,
+        unread_count_agent: conv.unreadCountAgent,
+        unread_count_visitor: conv.unreadCountVisitor,
+        created_at: conv.createdAt,
+        updated_at: conv.updatedAt,
+        data: conv,
+      },
+      { onConflict: 'id' }
     );
+    if (error) {
+      console.warn('[ChatStorage] Supabase conversation sync warning:', error.message);
+    }
   } catch (err) {
-    console.warn('[ChatStorage] MongoDB conversation sync warning:', err instanceof Error ? err.message : err);
+    console.warn('[ChatStorage] Supabase conversation sync exception:', err instanceof Error ? err.message : err);
   }
 }
 
-async function syncMessageToMongo(msg: ChatMessage): Promise<void> {
-  if (!isMongoConfigured()) return;
+export async function syncMessageToSupabase(msg: ChatMessage): Promise<void> {
+  if (!isSupabaseConfigured()) return;
   try {
-    const db = await safeGetDatabase();
-    if (!db) return;
-    await db.collection<ChatMessage>(MESSAGES_COLLECTION).updateOne(
-      { id: msg.id },
-      { $set: msg },
-      { upsert: true }
+    const { error } = await supabase.from('messages').upsert(
+      {
+        id: msg.id,
+        conversation_id: msg.conversationId,
+        sender: msg.sender,
+        sender_name: msg.senderName,
+        text: msg.text,
+        timestamp: msg.timestamp,
+        read: msg.read,
+        data: msg,
+      },
+      { onConflict: 'id' }
     );
+    if (error) {
+      console.warn('[ChatStorage] Supabase message sync warning:', error.message);
+    }
   } catch (err) {
-    console.warn('[ChatStorage] MongoDB message sync warning:', err instanceof Error ? err.message : err);
+    console.warn('[ChatStorage] Supabase message sync exception:', err instanceof Error ? err.message : err);
   }
 }
 
-// Trigger background one-time sync / cleanup on start
-let hasSyncedWithMongo = false;
-async function triggerMongoSync(): Promise<void> {
-  if (hasSyncedWithMongo || !isMongoConfigured()) return;
-  hasSyncedWithMongo = true;
+export async function syncChatWithSupabase(): Promise<void> {
+  if (!isSupabaseConfigured()) return;
   try {
-    const db = await safeGetDatabase();
-    if (!db) return;
+    const { data: remoteConvs, error } = await supabase
+      .from('conversations')
+      .select('id, data, updated_at')
+      .order('updated_at', { ascending: false });
 
-    // Purge demo records from Mongo
-    await db.collection(CONVERSATIONS_COLLECTION).deleteMany({
-      $or: [{ id: 'conv-rotterdam-01' }, { visitorId: 'vis-rotterdam-891' }]
-    });
-    await db.collection(MESSAGES_COLLECTION).deleteMany({
-      conversationId: 'conv-rotterdam-01'
-    });
+    if (error) {
+      console.warn('[ChatStorage] Supabase chat hydration warning:', error.message);
+      return;
+    }
 
     const store = getMemoryStore();
-    // Hydrate remote conversations into local store if any
-    const remoteConvs = await db.collection<Conversation>(CONVERSATIONS_COLLECTION).find({}, { projection: { _id: 0 } }).toArray();
-    let updated = false;
-    for (const rConv of remoteConvs) {
-      if (rConv.id === 'conv-rotterdam-01') continue;
-      const idx = store.conversations.findIndex((c) => c.id === rConv.id);
-      if (idx === -1) {
-        store.conversations.unshift(rConv);
-        updated = true;
-      } else {
-        store.conversations[idx] = rConv;
-        updated = true;
+
+    if (remoteConvs && remoteConvs.length > 0) {
+      let updated = false;
+      for (const row of remoteConvs) {
+        if (!row.data) continue;
+        const conv = row.data as Conversation;
+        if (conv.id === 'conv-rotterdam-01') continue;
+
+        const idx = store.conversations.findIndex((c) => c.id === conv.id);
+        if (idx === -1) {
+          store.conversations.unshift(conv);
+          updated = true;
+        } else {
+          store.conversations[idx] = conv;
+          updated = true;
+        }
+      }
+      if (updated) {
+        writeChatStoreToDisk(store);
+      }
+    } else if (store.conversations.length > 0) {
+      // Local has conversations but remote is empty: push local records to Supabase
+      for (const conv of store.conversations) {
+        await syncConversationToSupabase(conv);
+        const msgs = store.messages[conv.id] || [];
+        for (const msg of msgs) {
+          await syncMessageToSupabase(msg);
+        }
       }
     }
-    if (updated) {
-      writeChatStoreToDisk(store);
-    }
   } catch (err) {
-    console.warn('[ChatStorage] MongoDB initial sync warning:', err);
+    console.warn('[ChatStorage] Supabase chat sync error:', err);
   }
 }
 
 export async function getAllConversations(): Promise<Conversation[]> {
-  triggerMongoSync().catch(() => {});
-  // Always ensure fresh data from disk
+  await syncChatWithSupabase().catch(() => {});
   const diskData = readChatStoreFromDisk();
   globalThis.__GLOBAL_CHAT_STORE__ = diskData;
 
@@ -164,6 +188,25 @@ export async function getConversationById(id: string): Promise<Conversation | nu
   const conv = store.conversations.find((c) => c.id === id);
   if (conv) return conv;
 
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('data')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (!error && data?.data) {
+        const remote = data.data as Conversation;
+        store.conversations.unshift(remote);
+        writeChatStoreToDisk(store);
+        return remote;
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
   // Double check fresh disk in case another process created it
   const disk = readChatStoreFromDisk();
   globalThis.__GLOBAL_CHAT_STORE__ = disk;
@@ -171,6 +214,26 @@ export async function getConversationById(id: string): Promise<Conversation | nu
 }
 
 export async function getMessagesForConversation(convId: string): Promise<ChatMessage[]> {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('data')
+        .eq('conversation_id', convId)
+        .order('timestamp', { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        const msgs = data.map((row) => row.data as ChatMessage);
+        const store = getMemoryStore();
+        store.messages[convId] = msgs;
+        writeChatStoreToDisk(store);
+        return msgs;
+      }
+    } catch {
+      // Fallback to disk
+    }
+  }
+
   const store = getMemoryStore();
   if (store.messages[convId]) {
     return store.messages[convId];
@@ -182,14 +245,14 @@ export async function getMessagesForConversation(convId: string): Promise<ChatMe
 
 /**
  * Idempotent Visitor Conversation Creator / Retriever:
- * Checks for existing conversation by visitorId. Returns the existing conversation
- * if already present, preventing duplicate threads.
+ * Checks for existing conversation by visitorId in local store and Supabase.
+ * Returns the existing conversation if already present, preventing duplicate threads.
  */
 export async function getOrCreateVisitorConversation(
   visitorId: string,
   metadata?: Partial<VisitorMetadata>
 ): Promise<{ conversation: Conversation; isNew: boolean }> {
-  triggerMongoSync().catch(() => {});
+  await syncChatWithSupabase().catch(() => {});
   const store = getMemoryStore();
 
   // Find existing by visitorId
@@ -211,10 +274,32 @@ export async function getOrCreateVisitorConversation(
       const updated = { ...existing, ...updates };
       store.conversations[existingIndex] = updated;
       writeChatStoreToDisk(store);
-      syncConversationToMongo(updated);
+      syncConversationToSupabase(updated).catch(() => {});
       return { conversation: updated, isNew: false };
     }
     return { conversation: existing, isNew: false };
+  }
+
+  // Check Supabase directly for this visitorId in case it was created in another session
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('data')
+        .eq('visitor_id', visitorId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data?.data) {
+        const remote = data.data as Conversation;
+        store.conversations.unshift(remote);
+        writeChatStoreToDisk(store);
+        return { conversation: remote, isNew: false };
+      }
+    } catch {
+      // Continue to create new
+    }
   }
 
   // Create brand new conversation
@@ -262,9 +347,9 @@ export async function getOrCreateVisitorConversation(
   // Write durably to disk
   writeChatStoreToDisk(store);
 
-  // Sync to MongoDB in background
-  syncConversationToMongo(newConv);
-  syncMessageToMongo(welcomeMsg);
+  // Sync to Supabase in background
+  syncConversationToSupabase(newConv).catch(() => {});
+  syncMessageToSupabase(welcomeMsg).catch(() => {});
 
   return { conversation: newConv, isNew: true };
 }
@@ -279,7 +364,10 @@ export async function addChatMessage(
   }
 ): Promise<{ message: ChatMessage; conversation: Conversation }> {
   const store = getMemoryStore();
-  const conv = store.conversations.find((c) => c.id === conversationId);
+  let conv: Conversation | null | undefined = store.conversations.find((c) => c.id === conversationId);
+  if (!conv) {
+    conv = await getConversationById(conversationId);
+  }
   if (!conv) {
     throw new Error(`Conversation not found: ${conversationId}`);
   }
@@ -317,9 +405,9 @@ export async function addChatMessage(
   // Write durably to disk
   writeChatStoreToDisk(store);
 
-  // Sync to MongoDB in background
-  syncConversationToMongo(conv);
-  syncMessageToMongo(newMsg);
+  // Sync to Supabase in background
+  syncConversationToSupabase(conv).catch(() => {});
+  syncMessageToSupabase(newMsg).catch(() => {});
 
   return { message: newMsg, conversation: conv };
 }
@@ -336,7 +424,7 @@ export async function updateConversationStatus(
   conv.updatedAt = new Date().toISOString();
 
   writeChatStoreToDisk(store);
-  syncConversationToMongo(conv);
+  syncConversationToSupabase(conv).catch(() => {});
 
   return conv;
 }
@@ -357,7 +445,7 @@ export async function updateConversationNotes(
   conv.updatedAt = new Date().toISOString();
 
   writeChatStoreToDisk(store);
-  syncConversationToMongo(conv);
+  syncConversationToSupabase(conv).catch(() => {});
 
   return conv;
 }
@@ -385,7 +473,7 @@ export async function markConversationRead(
   }
 
   writeChatStoreToDisk(store);
-  syncConversationToMongo(conv);
+  syncConversationToSupabase(conv).catch(() => {});
 
   return conv;
 }
@@ -395,13 +483,10 @@ export async function resetChatStore(): Promise<void> {
   globalThis.__GLOBAL_CHAT_STORE__ = empty;
   writeChatStoreToDisk(empty);
 
-  if (isMongoConfigured()) {
+  if (isSupabaseConfigured()) {
     try {
-      const db = await safeGetDatabase();
-      if (db) {
-        await db.collection(CONVERSATIONS_COLLECTION).deleteMany({});
-        await db.collection(MESSAGES_COLLECTION).deleteMany({});
-      }
+      await supabase.from('messages').delete().neq('id', '__never_match__');
+      await supabase.from('conversations').delete().neq('id', '__never_match__');
     } catch {}
   }
 }
