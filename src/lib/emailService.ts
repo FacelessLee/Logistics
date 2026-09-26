@@ -141,10 +141,12 @@ function getReplyToAddress(): string {
   return 'dispatch@navithonlogistics.com';
 }
 
-function getBaseUrl(): string {
-  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '');
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return 'https://navithonlogistics.com';
+export const LIVE_DOMAIN = 'navithonlogistics.com';
+export const LIVE_BASE_URL = 'https://navithonlogistics.com';
+
+export function getBaseUrl(): string {
+  // Enforce registered live production domain for all customer-facing tracking links & emails
+  return LIVE_BASE_URL;
 }
 
 function isValidEmail(email?: string): boolean {
