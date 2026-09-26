@@ -61,9 +61,11 @@ export async function PATCH(
       const updated = addCheckpointToConsignment(id, body.checkpoint);
       if (updated && updated.checkpoints.length > 0) {
         const latestCheckpoint = updated.checkpoints[updated.checkpoints.length - 1];
-        sendStatusUpdateEmail(updated, latestCheckpoint).catch((err) =>
-          console.error('[API PATCH] Error sending status email:', err)
-        );
+        try {
+          await sendStatusUpdateEmail(updated, latestCheckpoint);
+        } catch (err) {
+          console.error('[API PATCH] Error sending status email:', err);
+        }
       }
       return NextResponse.json({
         success: true,
@@ -86,9 +88,11 @@ export async function PATCH(
             description: `Status changed to ${updated.status}`,
             facility: 'Navithon Hub'
           };
-      sendStatusUpdateEmail(updated, latestCheckpoint).catch((err) =>
-        console.error('[API PATCH] Error sending status email:', err)
-      );
+      try {
+        await sendStatusUpdateEmail(updated, latestCheckpoint);
+      } catch (err) {
+        console.error('[API PATCH] Error sending status email:', err);
+      }
     }
     return NextResponse.json({
       success: true,

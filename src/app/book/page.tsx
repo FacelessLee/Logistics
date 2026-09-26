@@ -160,8 +160,13 @@ function BookingFormContent() {
     setIsResending(true);
     setResendNotice(null);
     try {
-      const res = await fetch(`/api/consignments/${createdConsignment.trackingId}/email-report?email=${encodeURIComponent(addr)}`, {
-        method: 'POST'
+      const res = await fetch(`/api/consignments/${createdConsignment.trackingId}/email-report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientEmail: addr,
+          reportType: 'CONFIRMATION'
+        })
       });
       const data = await res.json();
       if (data.success) {

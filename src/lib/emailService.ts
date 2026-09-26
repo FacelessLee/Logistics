@@ -85,16 +85,52 @@ export function getRecentDispatchedEmails(trackingId?: string): EmailOutboxItem[
   return items.filter((item) => item.trackingId.toUpperCase() === normalized);
 }
 
-function getResendClient(): Resend | null {
-  const key = process.env.RESEND_API_KEY;
-  if (!key || key.trim() === '') {
-    return null;
-  }
-  return new Resend(key.trim());
+export const DEFAULT_SENDER_EMAIL = 'Navithon Logistics <dispatch@navithonlogistics.com>';
+
+export function getResendApiKey(): string {
+  let key = process.env.RESEND_API_KEY?.trim();
+  if (key) return key;
+
+  try {
+    const envLocalPath = path.join(process.cwd(), '.env.local');
+    if (fs.existsSync(envLocalPath)) {
+      const content = fs.readFileSync(envLocalPath, 'utf-8');
+      const match = content.match(/RESEND_API_KEY=["']?([^"'\r\n]+)["']?/);
+      if (match && match[1]?.trim()) {
+        key = match[1].trim();
+        process.env.RESEND_API_KEY = key;
+        return key;
+      }
+    }
+  } catch {}
+
+  try {
+    const envPath = path.join(process.cwd(), '.env');
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, 'utf-8');
+      const match = content.match(/RESEND_API_KEY=["']?([^"'\r\n]+)["']?/);
+      if (match && match[1]?.trim()) {
+        key = match[1].trim();
+        process.env.RESEND_API_KEY = key;
+        return key;
+      }
+    }
+  } catch {}
+
+  return process.env.RESEND_API_KEY?.trim() || '';
 }
 
-function getSenderAddress(): string {
-  return process.env.EMAIL_FROM?.trim() || 'Navithon Logistics <dispatch@navithonlogistics.com>';
+export function getResendClient(): Resend {
+  const key = getResendApiKey();
+  return new Resend(key);
+}
+
+export function getSenderAddress(): string {
+  const from = process.env.EMAIL_FROM?.trim();
+  if (from && from.includes('dispatch@navithonlogistics.com')) {
+    return from;
+  }
+  return DEFAULT_SENDER_EMAIL;
 }
 
 function getReplyToAddress(): string {
@@ -592,28 +628,9 @@ export async function sendNewConsignmentEmail(
   }
 
   const resend = getResendClient();
-
-  if (!resend) {
-    const warnMsg = 'RESEND_API_KEY is not configured. Emulating email dispatch.';
-    console.warn(`[EmailService] ${warnMsg}`);
-    targets.forEach((t) => {
-      logDispatchedEmail({
-        id: `mock-${Date.now()}-${t.role}`,
-        trackingId: consignment.trackingId,
-        type: 'CONSIGNMENT_CONFIRMATION',
-        to: [t.email],
-        subject: t.subject,
-        timestamp: new Date().toISOString(),
-        success: true,
-        hasAttachment: true
-      });
-    });
-    return { success: true, recipients: targets.map((t) => t.email) };
-  }
-
   const dispatchedRecipients: string[] = [];
+  const errors: string[] = [];
   let lastResendId: string | undefined;
-  let lastError: string | undefined;
 
   // Send individual personalized emails to each party for maximum deliverability & inbox placement
   for (let i = 0; i < targets.length; i++) {
@@ -679,7 +696,7 @@ ${trackingUrl}
 
       if (res.error) {
         console.error(`[EmailService] Resend API error for ${target.email}:`, res.error);
-        lastError = res.error.message;
+        errors.push(`${target.email}: ${res.error.message}`);
         logDispatchedEmail({
           id: `err-${Date.now()}`,
           trackingId: consignment.trackingId,
@@ -712,7 +729,7 @@ ${trackingUrl}
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown Resend error';
       console.error(`[EmailService] Unexpected error sending email to ${target.email}:`, err);
-      lastError = msg;
+      errors.push(`${target.email}: ${msg}`);
       logDispatchedEmail({
         id: `exc-${Date.now()}`,
         trackingId: consignment.trackingId,
@@ -732,7 +749,7 @@ ${trackingUrl}
   return {
     success: isSuccess,
     resendId: lastResendId,
-    error: isSuccess ? undefined : lastError,
+    error: errors.length > 0 ? errors.join('; ') : undefined,
     recipients: dispatchedRecipients
   };
 }
@@ -812,28 +829,9 @@ export async function sendStatusUpdateEmail(
   }
 
   const resend = getResendClient();
-
-  if (!resend) {
-    const warnMsg = 'RESEND_API_KEY is not configured. Emulating status email dispatch.';
-    console.warn(`[EmailService] ${warnMsg}`);
-    targets.forEach((t) => {
-      logDispatchedEmail({
-        id: `mock-${Date.now()}-status`,
-        trackingId: consignment.trackingId,
-        type: 'STATUS_UPDATE',
-        to: [t.email],
-        subject,
-        timestamp: new Date().toISOString(),
-        success: true,
-        hasAttachment: true
-      });
-    });
-    return { success: true, recipients: targets.map((t) => t.email) };
-  }
-
   const dispatchedRecipients: string[] = [];
+  const errors: string[] = [];
   let lastResendId: string | undefined;
-  let lastError: string | undefined;
 
   for (let i = 0; i < targets.length; i++) {
     const target = targets[i];
@@ -898,7 +896,7 @@ ${trackingUrl}
 
       if (res.error) {
         console.error(`[EmailService] Resend API error for ${target.email}:`, res.error);
-        lastError = res.error.message;
+        errors.push(`${target.email}: ${res.error.message}`);
         logDispatchedEmail({
           id: `err-${Date.now()}`,
           trackingId: consignment.trackingId,
@@ -931,7 +929,7 @@ ${trackingUrl}
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown Resend error';
       console.error(`[EmailService] Unexpected error sending status email to ${target.email}:`, err);
-      lastError = msg;
+      errors.push(`${target.email}: ${msg}`);
       logDispatchedEmail({
         id: `exc-${Date.now()}`,
         trackingId: consignment.trackingId,
@@ -951,7 +949,7 @@ ${trackingUrl}
   return {
     success: isSuccess,
     resendId: lastResendId,
-    error: isSuccess ? undefined : lastError,
+    error: errors.length > 0 ? errors.join('; ') : undefined,
     recipients: dispatchedRecipients
   };
 }

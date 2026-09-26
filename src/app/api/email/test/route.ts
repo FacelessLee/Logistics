@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { getAllConsignments } from '@/lib/storage';
 import { generateWaybillPdf } from '@/lib/waybillPdf';
-import { logDispatchedEmail } from '@/lib/emailService';
+import { logDispatchedEmail, getResendApiKey, getSenderAddress } from '@/lib/emailService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,14 +16,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = process.env.RESEND_API_KEY?.trim();
-    if (!apiKey) {
-      return NextResponse.json(
-        { success: false, error: 'RESEND_API_KEY is missing from .env.local.' },
-        { status: 500 }
-      );
-    }
-
+    const apiKey = getResendApiKey();
     const resend = new Resend(apiKey);
     const consignments = getAllConsignments();
     const sample = consignments[0];
@@ -38,7 +31,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const sender = process.env.EMAIL_FROM?.trim() || 'Navithon Logistics <dispatch@navithonlogistics.com>';
+    const sender = getSenderAddress();
     const subject = `[Navithon Logistics] Official Waybill & Verification Delivery Test`;
     const trackingId = sample?.trackingId || 'TRK-VERIFY-001';
 

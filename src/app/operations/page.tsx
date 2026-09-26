@@ -558,6 +558,7 @@ export default function OperationsPortalPage() {
           prev.map((c) => (c.trackingId === selectedConsignment.trackingId ? json.data : c))
         );
         setIsModalOpen(false);
+        fetchOutbox();
       }
     } catch (err) {
       console.error('Failed to submit checkpoint:', err);
@@ -2656,7 +2657,7 @@ export default function OperationsPortalPage() {
                 color: '#38bdf8'
               }}>
                 <Mail size={15} />
-                <span>Broadcasting checkpoint will auto-dispatch status report & waybill PDF to: <strong>{selectedConsignment.sender.email}</strong></span>
+                <span>Broadcasting checkpoint will auto-dispatch real-time status update &amp; waybill PDF to: <strong>Shipper ({selectedConsignment.sender.email})</strong> and <strong>Consignee ({selectedConsignment.receiver.email})</strong></span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>

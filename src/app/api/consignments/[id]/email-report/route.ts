@@ -27,15 +27,19 @@ export async function POST(
       );
     }
 
-    let body: { recipientEmail?: string; reportType?: 'STATUS' | 'CONFIRMATION' } = {};
+    let body: { recipientEmail?: string; email?: string; to?: string; reportType?: 'STATUS' | 'CONFIRMATION' } = {};
     try {
       body = await request.json();
     } catch {
       // body is optional
     }
 
-    const recipient = body.recipientEmail?.trim() || undefined;
-    const reportType = body.reportType || 'STATUS';
+    const queryEmail = request.nextUrl.searchParams.get('email') || request.nextUrl.searchParams.get('to') || request.nextUrl.searchParams.get('recipient');
+    const recipient = (body.recipientEmail || body.email || body.to || queryEmail)?.trim() || undefined;
+
+    const queryType = request.nextUrl.searchParams.get('type') || request.nextUrl.searchParams.get('reportType');
+    const normalizedQueryType = queryType?.toUpperCase() === 'CONFIRMATION' ? 'CONFIRMATION' : queryType?.toUpperCase() === 'STATUS' ? 'STATUS' : undefined;
+    const reportType = body.reportType || normalizedQueryType || 'STATUS';
 
     let result;
     if (reportType === 'CONFIRMATION') {
