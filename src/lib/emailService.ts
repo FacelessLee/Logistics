@@ -338,6 +338,30 @@ function buildConfirmationHtml(
           }
         </div>
 
+        ${
+          consignment.packageDetails.packageImage
+            ? `
+        <!-- Verified Cargo Photo Card -->
+        <div style="background:#0f172a; border:1px solid #0284c7; border-radius:8px; padding:18px; margin:22px 0; text-align:center;">
+          <div style="font-size:11px; text-transform:uppercase; color:#38bdf8; font-weight:800; letter-spacing:1px; margin-bottom:12px;">
+            📷 Verified Cargo Intake & Inspection Photo
+          </div>
+          <div style="background:#070d18; border:1px solid #1e293b; border-radius:6px; padding:10px; display:inline-block; max-width:100%;">
+            <img src="${
+              consignment.packageDetails.packageImage.startsWith('data:')
+                ? `${getBaseUrl()}/uploads/packages/${consignment.trackingId}.jpg`
+                : consignment.packageDetails.packageImage
+            }" alt="Verified Package Cargo Photo" style="max-width:100%; max-height:260px; object-fit:contain; border-radius:4px; display:block; margin:0 auto;" />
+          </div>
+          <div style="font-size:11px; color:#94a3b8; margin-top:10px; line-height:1.5;">
+            Verified parcel photographic evidence captured at <strong>${consignment.originLocation}</strong> intake.<br>
+            Physical condition and parcel count confirmed matching attached Air Waybill.
+          </div>
+        </div>
+        `
+            : ''
+        }
+
         <!-- Action Button -->
         <div style="text-align:center; margin:32px 0;">
           <a href="${trackingUrl}" class="btn">

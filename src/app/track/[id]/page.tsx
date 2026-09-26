@@ -23,7 +23,10 @@ import {
   AlertCircle,
   FileText,
   Mail,
-  Download
+  Download,
+  Camera,
+  ZoomIn,
+  X
 } from 'lucide-react';
 import { Consignment } from '@/lib/types';
 import { formatDate, getStatusLabel, getStatusColor, formatCurrency } from '@/lib/utils';
@@ -45,6 +48,7 @@ export default function ConsignmentDetailPage() {
   const [copiedId, setCopiedId] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailNotice, setEmailNotice] = useState<string | null>(null);
+  const [enlargedPhoto, setEnlargedPhoto] = useState<string | null>(null);
 
   const handleEmailStatusReport = async () => {
     if (!consignment) return;
@@ -519,6 +523,88 @@ export default function ConsignmentDetailPage() {
                 </div>
               </div>
 
+              {/* Verified Cargo Photo Card */}
+              {consignment.packageDetails.packageImage && (
+                <div style={{
+                  marginTop: '20px',
+                  padding: '16px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'rgba(2, 132, 199, 0.08)',
+                  border: '1px solid rgba(2, 132, 199, 0.25)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <span style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      color: 'var(--accent-cyan-light)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}>
+                      <Camera size={13} />
+                      <span>Verified Cargo Photo</span>
+                    </span>
+                    <span style={{
+                      fontSize: '0.7rem',
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: '#34d399',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      padding: '2px 8px',
+                      borderRadius: '999px',
+                      fontWeight: 700
+                    }}>
+                      Origin Intake ✓
+                    </span>
+                  </div>
+
+                  <div
+                    onClick={() => setEnlargedPhoto(consignment.packageDetails.packageImage!)}
+                    style={{
+                      position: 'relative',
+                      borderRadius: 'var(--radius-sm)',
+                      overflow: 'hidden',
+                      border: '1px solid var(--border-subtle)',
+                      maxHeight: '180px',
+                      cursor: 'pointer',
+                      background: '#070d18',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'border-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent-cyan)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border-subtle)')}
+                    title="Click to view full-resolution cargo photo"
+                  >
+                    <img
+                      src={consignment.packageDetails.packageImage}
+                      alt="Verified package cargo inspection"
+                      style={{ width: '100%', maxHeight: '180px', objectFit: 'contain' }}
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '8px',
+                      right: '8px',
+                      background: 'rgba(3, 7, 18, 0.85)',
+                      backdropFilter: 'blur(4px)',
+                      color: '#ffffff',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '0.72rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      border: '1px solid rgba(255, 255, 255, 0.15)'
+                    }}>
+                      <ZoomIn size={12} />
+                      <span>Enlarge Photo</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Button to open Air Waybill */}
               <button
                 onClick={() => setShowWaybill(true)}
@@ -532,6 +618,88 @@ export default function ConsignmentDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Enlarged Photo Modal / Lightbox */}
+      {enlargedPhoto && (
+        <div
+          onClick={() => setEnlargedPhoto(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 110,
+            background: 'rgba(3, 7, 18, 0.92)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'relative',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              background: '#0b1325',
+              border: '1px solid rgba(2, 132, 199, 0.4)',
+              borderRadius: '12px',
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '12px',
+              paddingBottom: '10px',
+              borderBottom: '1px solid var(--border-subtle)'
+            }}>
+              <div>
+                <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#ffffff' }}>
+                  Verified Cargo Intake Photo
+                </span>
+                <span style={{ marginLeft: '10px', fontSize: '0.8rem', color: 'var(--accent-cyan-light)', fontFamily: 'var(--font-mono)' }}>
+                  #{consignment.trackingId}
+                </span>
+              </div>
+
+              <button
+                onClick={() => setEnlargedPhoto(null)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: 'none',
+                  color: '#ffffff',
+                  borderRadius: '6px',
+                  padding: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <img
+              src={enlargedPhoto}
+              alt="Enlarged Cargo Inspection"
+              style={{
+                maxWidth: '85vw',
+                maxHeight: '75vh',
+                objectFit: 'contain',
+                borderRadius: '8px',
+                display: 'block'
+              }}
+            />
+
+            <div style={{ marginTop: '10px', fontSize: '0.78rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
+              Photographic evidence recorded at origin intake terminal ({consignment.originLocation}).
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Printable Air Waybill Document Modal */}
       <AirWaybillModal

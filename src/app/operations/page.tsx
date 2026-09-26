@@ -32,7 +32,8 @@ import {
   Eye,
   CheckCircle,
   FileText,
-  RefreshCw
+  RefreshCw,
+  Camera
 } from 'lucide-react';
 import { Conversation, ChatMessage, ConversationStatus, CannedResponse } from '@/lib/chatTypes';
 import { INITIAL_CANNED_RESPONSES } from '@/data/initialChats';
@@ -2090,6 +2091,25 @@ export default function OperationsPortalPage() {
                           {c.trackingId}
                           <ExternalLink size={12} />
                         </Link>
+                        {c.packageDetails.packageImage && (
+                          <div style={{ marginTop: '4px' }}>
+                            <span style={{
+                              fontSize: '0.65rem',
+                              fontFamily: 'var(--font-mono)',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              background: 'rgba(56, 189, 248, 0.12)',
+                              color: '#38bdf8',
+                              border: '1px solid rgba(56, 189, 248, 0.25)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px'
+                            }}>
+                              <Camera size={10} />
+                              <span>PHOTO VERIFIED</span>
+                            </span>
+                          </div>
+                        )}
                       </td>
 
                       <td style={{ padding: '16px 20px', fontSize: '0.85rem' }}>

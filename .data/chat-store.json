@@ -1,6 +1,21 @@
 {
   "conversations": [
     {
+      "id": "conv-1790426976617-266",
+      "status": "ACTIVE",
+      "createdAt": "2026-09-26T12:49:36.617Z",
+      "updatedAt": "2026-09-26T12:49:36.617Z",
+      "visitorId": "vis-mudbitdo-2e0m",
+      "currentPage": "/track/EXP-2026-4RFLM",
+      "visitorName": "Visitor #2E0M",
+      "assignedAgent": "David M. (Operations)",
+      "lastMessageText": "Welcome to Navithon Operations! A dedicated logistics dispatcher is available. How may we assist your freight shipment?",
+      "visitorLocation": "Website visitor",
+      "unreadCountAgent": 0,
+      "unreadCountVisitor": 1,
+      "lastMessageTimestamp": "2026-09-26T12:49:36.617Z"
+    },
+    {
       "id": "conv-1790425207654-333",
       "status": "ACTIVE",
       "createdAt": "2026-09-26T12:20:07.654Z",
@@ -27,24 +42,47 @@
       "lastMessageText": "Customs clearance status",
       "visitorLocation": "Website visitor",
       "unreadCountAgent": 1,
-      "unreadCountVisitor": 1,
+      "unreadCountVisitor": 0,
       "lastMessageTimestamp": "2026-09-26T12:25:29.651Z"
     },
     {
       "id": "conv-1790414705273-870",
       "status": "ACTIVE",
       "createdAt": "2026-09-26T09:25:05.273Z",
-      "updatedAt": "2026-09-26T09:25:05.273Z",
+      "updatedAt": "2026-09-26T12:27:28.789Z",
       "visitorId": "vis-muchshm1-pug7",
       "currentPage": "/",
       "visitorName": "Visitor #PUG7",
       "assignedAgent": "David M. (Operations)",
-      "lastMessageText": "Welcome to Navithon Operations! A dedicated logistics dispatcher is available. How may we assist your freight shipment?",
+      "lastMessageText": "Track my consignment",
       "visitorLocation": "Website visitor",
-      "unreadCountAgent": 0,
+      "unreadCountAgent": 1,
       "unreadCountVisitor": 1,
-      "lastMessageTimestamp": "2026-09-26T09:25:05.273Z"
+      "lastMessageTimestamp": "2026-09-26T12:27:28.789Z"
     }
   ],
-  "messages": {}
+  "messages": {
+    "conv-1790414705273-870": [
+      {
+        "id": "msg-1790425648789-8018",
+        "read": false,
+        "text": "Track my consignment",
+        "sender": "visitor",
+        "timestamp": "2026-09-26T12:27:28.789Z",
+        "senderName": "Visitor #PUG7",
+        "conversationId": "conv-1790414705273-870"
+      }
+    ],
+    "conv-1790426976617-266": [
+      {
+        "id": "msg-1790426976618-827",
+        "read": false,
+        "text": "Welcome to Navithon Operations! A dedicated logistics dispatcher is available. How may we assist your freight shipment?",
+        "sender": "agent",
+        "timestamp": "2026-09-26T12:49:36.617Z",
+        "senderName": "David M. (Operations)",
+        "conversationId": "conv-1790426976617-266"
+      }
+    ]
+  }
 }

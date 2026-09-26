@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllConsignmentsAsync, addConsignment, getConsignmentByIdAsync } from '@/lib/storage';
 import { generateTrackingId } from '@/lib/utils';
@@ -82,6 +84,24 @@ export async function POST(request: NextRequest) {
       facility: 'Navithon Central Dispatch & Booking Terminal'
     };
 
+    // If packageImage is provided as Base64 data URL, cache to public uploads folder for high-availability access
+    const rawImage = body.packageDetails.packageImage;
+    let savedPackageImage: string | undefined = typeof rawImage === 'string' && rawImage.trim().length > 0 ? rawImage : undefined;
+
+    if (savedPackageImage && savedPackageImage.startsWith('data:image/')) {
+      try {
+        const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'packages');
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        const base64Data = savedPackageImage.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+        fs.writeFileSync(path.join(uploadDir, `${trackingId}.jpg`), buffer);
+      } catch (imgErr) {
+        console.warn('[API Consignments] Could not cache package image to public disk:', imgErr);
+      }
+    }
+
     const newConsignment: Consignment = {
       trackingId,
       status: 'ORDER_CREATED',
@@ -116,7 +136,8 @@ export async function POST(request: NextRequest) {
         declaredValue: body.packageDetails.declaredValue || { amount: 500, currency: 'USD' },
         isFragile: Boolean(body.packageDetails.isFragile),
         temperatureControlled: Boolean(body.packageDetails.temperatureControlled),
-        specialHandling: body.packageDetails.specialHandling || 'Standard handling procedure'
+        specialHandling: body.packageDetails.specialHandling || 'Standard handling procedure',
+        packageImage: savedPackageImage
       },
       carrier: body.carrier || {
         name: 'Navithon Global Logistics Express',

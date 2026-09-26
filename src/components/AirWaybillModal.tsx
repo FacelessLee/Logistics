@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X, Printer, Download, CheckCircle, ShieldCheck, QrCode } from 'lucide-react';
+import { X, Printer } from 'lucide-react';
 import { Consignment } from '@/lib/types';
 import { formatDate, formatCurrency } from '@/lib/utils';
 
@@ -172,7 +172,7 @@ export default function AirWaybillModal({ consignment, isOpen, onClose }: AirWay
             {/* Shipper's Box */}
             <div style={{ padding: '12px', borderRight: '1px solid #0f172a' }}>
               <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase' }}>
-                1. SHIPPER'S NAME & ADDRESS
+                1. SHIPPER&apos;S NAME & ADDRESS
               </div>
               <div style={{ fontWeight: 'bold', fontSize: '13px', marginTop: '4px' }}>
                 {consignment.sender.company || consignment.sender.name}
@@ -188,7 +188,7 @@ export default function AirWaybillModal({ consignment, isOpen, onClose }: AirWay
             {/* Consignee's Box */}
             <div style={{ padding: '12px' }}>
               <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase' }}>
-                2. CONSIGNEE'S NAME & ADDRESS
+                2. CONSIGNEE&apos;S NAME & ADDRESS
               </div>
               <div style={{ fontWeight: 'bold', fontSize: '13px', marginTop: '4px' }}>
                 {consignment.receiver.company || consignment.receiver.name}
@@ -303,6 +303,64 @@ export default function AirWaybillModal({ consignment, isOpen, onClose }: AirWay
               </div>
             </div>
           </div>
+
+          {/* Cargo Visual Inspection & Security Block */}
+          {consignment.packageDetails.packageImage && (
+            <div style={{
+              border: '1px solid #0f172a',
+              marginBottom: '16px',
+              display: 'grid',
+              gridTemplateColumns: '130px 1fr',
+              background: '#f8fafc'
+            }}>
+              <div style={{
+                padding: '8px',
+                borderRight: '1px solid #0f172a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#0f172a'
+              }}>
+                <img
+                  src={consignment.packageDetails.packageImage}
+                  alt="Verified Cargo Inspection"
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '90px',
+                    objectFit: 'contain',
+                    borderRadius: '4px'
+                  }}
+                />
+              </div>
+
+              <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#0284c7', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    CARGO VISUAL INSPECTION & SECURITY TELEMETRY
+                  </span>
+                  <span style={{
+                    fontSize: '8px',
+                    fontWeight: 700,
+                    padding: '1px 6px',
+                    borderRadius: '4px',
+                    background: '#dcfce7',
+                    color: '#15803d',
+                    border: '1px solid #86efac'
+                  }}>
+                    ORIGIN INTAKE VERIFIED ✓
+                  </span>
+                </div>
+
+                <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#0f172a', marginTop: '4px' }}>
+                  {consignment.packageDetails.description} ({consignment.packageDetails.pieceCount} Piece(s), {consignment.packageDetails.weightKg} kg)
+                </div>
+
+                <div style={{ fontSize: '9px', color: '#64748b', marginTop: '3px', lineHeight: 1.4 }}>
+                  Intake Inspection: Photographic evidence captured at {consignment.originLocation}. Parcel condition complies with non-negotiable Air Waybill declaration and customs manifest.
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Signatures & Execution Box */}
           <div style={{

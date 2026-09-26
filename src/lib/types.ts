@@ -57,6 +57,7 @@ export interface PackageDetails {
   isFragile?: boolean;
   temperatureControlled?: boolean;
   specialHandling?: string;
+  packageImage?: string; // Base64 data URL or hosted image URL of the cargo
 }
 
 export interface CarrierDetails {
