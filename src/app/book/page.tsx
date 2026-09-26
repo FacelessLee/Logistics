@@ -331,12 +331,24 @@ function BookingFormContent() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f1f5f9', fontSize: '0.85rem' }}>
                         <span style={{ color: 'var(--accent-cyan-light)', fontWeight: 700 }}>• Shipper:</span>
                         <span>{createdConsignment.sender.email}</span>
-                        <span style={{ fontSize: '0.72rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>Dispatched</span>
+                        {emailDispatchStatus?.recipients?.map((r) => r.toLowerCase()).includes(createdConsignment.sender.email.trim().toLowerCase()) ? (
+                          <span style={{ fontSize: '0.72rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>Dispatched</span>
+                        ) : (
+                          <span style={{ fontSize: '0.72rem', color: emailDispatchStatus?.error ? '#fca5a5' : '#38bdf8', background: emailDispatchStatus?.error ? 'rgba(239, 68, 68, 0.15)' : 'rgba(56, 189, 248, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
+                            {emailDispatchStatus?.error ? 'Dispatch Failed' : 'Pending'}
+                          </span>
+                        )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f1f5f9', fontSize: '0.85rem' }}>
                         <span style={{ color: 'var(--accent-cyan-light)', fontWeight: 700 }}>• Consignee:</span>
                         <span>{createdConsignment.receiver.email}</span>
-                        <span style={{ fontSize: '0.72rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>Dispatched</span>
+                        {emailDispatchStatus?.recipients?.map((r) => r.toLowerCase()).includes(createdConsignment.receiver.email.trim().toLowerCase()) ? (
+                          <span style={{ fontSize: '0.72rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>Dispatched</span>
+                        ) : (
+                          <span style={{ fontSize: '0.72rem', color: emailDispatchStatus?.error ? '#fca5a5' : '#38bdf8', background: emailDispatchStatus?.error ? 'rgba(239, 68, 68, 0.15)' : 'rgba(56, 189, 248, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
+                            {emailDispatchStatus?.error ? 'Dispatch Failed' : 'Pending'}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
