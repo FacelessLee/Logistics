@@ -1,6 +1,36 @@
 {
   "conversations": [
     {
+      "id": "conv-1790425207654-333",
+      "status": "ACTIVE",
+      "createdAt": "2026-09-26T12:20:07.654Z",
+      "updatedAt": "2026-09-26T12:20:07.654Z",
+      "visitorId": "vis-muicxuoj-w5ua",
+      "currentPage": "/track/TRK-2026-NVEN7",
+      "visitorName": "Visitor #W5UA",
+      "assignedAgent": "David M. (Operations)",
+      "lastMessageText": "Welcome to Navithon Operations! A dedicated logistics dispatcher is available. How may we assist your freight shipment?",
+      "visitorLocation": "Website visitor",
+      "unreadCountAgent": 0,
+      "unreadCountVisitor": 1,
+      "lastMessageTimestamp": "2026-09-26T12:20:07.654Z"
+    },
+    {
+      "id": "conv-1790425204958-882",
+      "status": "ACTIVE",
+      "createdAt": "2026-09-26T12:20:04.958Z",
+      "updatedAt": "2026-09-26T12:25:29.651Z",
+      "visitorId": "vis-mucxs46g-ttl0",
+      "currentPage": "/track/TRK-2026-NVEN7",
+      "visitorName": "Visitor #TTL0",
+      "assignedAgent": "David M. (Operations)",
+      "lastMessageText": "Customs clearance status",
+      "visitorLocation": "Website visitor",
+      "unreadCountAgent": 1,
+      "unreadCountVisitor": 1,
+      "lastMessageTimestamp": "2026-09-26T12:25:29.651Z"
+    },
+    {
       "id": "conv-1790414705273-870",
       "status": "ACTIVE",
       "createdAt": "2026-09-26T09:25:05.273Z",
