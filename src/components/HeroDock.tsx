@@ -45,15 +45,11 @@ export default function HeroDock({ onSelectService }: HeroDockProps) {
       <div
         className="hero-dock-container"
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(420px, 1.35fr) minmax(320px, 1.65fr)',
-          gap: '16px',
           background: 'rgba(12, 12, 14, 0.88)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
           border: '1px solid rgba(255, 255, 255, 0.12)',
           borderRadius: '18px',
-          padding: '16px 20px',
           boxShadow: '0 24px 60px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05)',
         }}
       >
@@ -64,8 +60,6 @@ export default function HeroDock({ onSelectService }: HeroDockProps) {
             flexDirection: 'column',
             justifyContent: 'center',
             gap: '12px',
-            paddingRight: '16px',
-            borderRight: '1px solid rgba(255, 255, 255, 0.08)',
           }}
           className="dock-tracking-section"
         >
@@ -183,14 +177,7 @@ export default function HeroDock({ onSelectService }: HeroDockProps) {
         </div>
 
         {/* ── Right Side: 3 Quick Modal Services ── */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '12px',
-          }}
-          className="dock-services-grid"
-        >
+        <div className="dock-services-grid">
           {/* Service Card 1: Air Freight */}
           <div
             className="dock-card"

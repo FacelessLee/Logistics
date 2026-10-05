@@ -78,107 +78,109 @@ export default function TrackingTimeline({ consignment }: TrackingTimelineProps)
           </div>
         </div>
 
-        {/* Stepper Grid / Bar */}
-        <div style={{ position: 'relative', margin: '20px 0 10px' }}>
-          {/* Progress Bar Background Line */}
-          <div style={{
-            position: 'absolute',
-            top: '20px',
-            left: '30px',
-            right: '30px',
-            height: '4px',
-            background: 'rgba(255, 255, 255, 0.08)',
-            zIndex: 1,
-            borderRadius: '4px'
-          }} />
+        {/* Stepper Grid / Bar with touch-scrollable mobile support */}
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '10px', margin: '0 -8px', paddingLeft: '8px', paddingRight: '8px' }}>
+          <div style={{ position: 'relative', margin: '20px 0 10px', minWidth: '580px' }}>
+            {/* Progress Bar Background Line */}
+            <div style={{
+              position: 'absolute',
+              top: '20px',
+              left: '30px',
+              right: '30px',
+              height: '4px',
+              background: 'rgba(255, 255, 255, 0.08)',
+              zIndex: 1,
+              borderRadius: '4px'
+            }} />
 
-          {/* Active Progress Fill Line */}
-          <div style={{
-            position: 'absolute',
-            top: '20px',
-            left: '30px',
-            width: `${Math.min(100, (currentStep / (MILESTONE_STEPS.length - 1)) * 92)}%`,
-            height: '4px',
-            background: isDelivered
-              ? 'linear-gradient(90deg, #0ea5e9, #10b981)'
-              : 'linear-gradient(90deg, #0ea5e9, #38bdf8)',
-            boxShadow: '0 0 12px rgba(14, 165, 233, 0.6)',
-            zIndex: 2,
-            borderRadius: '4px',
-            transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)'
-          }} />
+            {/* Active Progress Fill Line */}
+            <div style={{
+              position: 'absolute',
+              top: '20px',
+              left: '30px',
+              width: `${Math.min(100, (currentStep / (MILESTONE_STEPS.length - 1)) * 92)}%`,
+              height: '4px',
+              background: isDelivered
+                ? 'linear-gradient(90deg, #0ea5e9, #10b981)'
+                : 'linear-gradient(90deg, #0ea5e9, #38bdf8)',
+              boxShadow: '0 0 12px rgba(14, 165, 233, 0.6)',
+              zIndex: 2,
+              borderRadius: '4px',
+              transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)'
+            }} />
 
-          {/* Step Nodes */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            position: 'relative',
-            zIndex: 3
-          }}>
-            {MILESTONE_STEPS.map((step, idx) => {
-              const isPast = idx < currentStep;
-              const isCurrent = idx === currentStep;
-              const isUpcoming = idx > currentStep;
+            {/* Step Nodes */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              position: 'relative',
+              zIndex: 3
+            }}>
+              {MILESTONE_STEPS.map((step, idx) => {
+                const isPast = idx < currentStep;
+                const isCurrent = idx === currentStep;
+                const isUpcoming = idx > currentStep;
 
-              return (
-                <div
-                  key={step.id}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    textAlign: 'center',
-                    maxWidth: '85px'
-                  }}
-                >
-                  {/* Node Circle */}
-                  <div style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: isCurrent
-                      ? 'var(--accent-cyan)'
-                      : isPast
-                      ? '#0f314d'
-                      : 'var(--bg-surface-elevated)',
-                    border: isCurrent
-                      ? '3px solid #ffffff'
-                      : isPast
-                      ? '2px solid var(--accent-cyan)'
-                      : '2px solid var(--border-subtle)',
-                    color: isCurrent || isPast ? '#ffffff' : 'var(--text-muted)',
-                    boxShadow: isCurrent ? '0 0 20px rgba(14, 165, 233, 0.8)' : 'none',
-                    transition: 'all 0.3s ease',
-                    marginBottom: '10px'
-                  }}>
-                    {isPast ? (
-                      <CheckCircle2 size={18} color="#38bdf8" />
-                    ) : isCurrent ? (
-                      <span className="badge-pulse" style={{ background: '#ffffff', width: '10px', height: '10px' }} />
-                    ) : (
-                      <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>{idx + 1}</span>
-                    )}
+                return (
+                  <div
+                    key={step.id}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      textAlign: 'center',
+                      maxWidth: '85px'
+                    }}
+                  >
+                    {/* Node Circle */}
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: isCurrent
+                        ? 'var(--accent-cyan)'
+                        : isPast
+                        ? '#0f314d'
+                        : 'var(--bg-surface-elevated)',
+                      border: isCurrent
+                        ? '3px solid #ffffff'
+                        : isPast
+                        ? '2px solid var(--accent-cyan)'
+                        : '2px solid var(--border-subtle)',
+                      color: isCurrent || isPast ? '#ffffff' : 'var(--text-muted)',
+                      boxShadow: isCurrent ? '0 0 20px rgba(14, 165, 233, 0.8)' : 'none',
+                      transition: 'all 0.3s ease',
+                      marginBottom: '10px'
+                    }}>
+                      {isPast ? (
+                        <CheckCircle2 size={18} color="#38bdf8" />
+                      ) : isCurrent ? (
+                        <span className="badge-pulse" style={{ background: '#ffffff', width: '10px', height: '10px' }} />
+                      ) : (
+                        <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>{idx + 1}</span>
+                      )}
+                    </div>
+
+                    {/* Label */}
+                    <span style={{
+                      fontSize: '0.76rem',
+                      fontWeight: isCurrent ? 700 : 500,
+                      color: isCurrent
+                        ? 'var(--accent-cyan-light)'
+                        : isPast
+                        ? 'var(--text-primary)'
+                        : 'var(--text-muted)',
+                      lineHeight: 1.2
+                    }}>
+                      {step.label}
+                    </span>
                   </div>
-
-                  {/* Label */}
-                  <span style={{
-                    fontSize: '0.76rem',
-                    fontWeight: isCurrent ? 700 : 500,
-                    color: isCurrent
-                      ? 'var(--accent-cyan-light)'
-                      : isPast
-                      ? 'var(--text-primary)'
-                      : 'var(--text-muted)',
-                    lineHeight: 1.2
-                  }}>
-                    {step.label}
-                  </span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>

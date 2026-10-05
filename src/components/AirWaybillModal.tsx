@@ -41,7 +41,7 @@ export default function AirWaybillModal({ consignment, isOpen, onClose }: AirWay
   };
 
   return (
-    <div style={{
+    <div className="airwaybill-modal-backdrop" style={{
       position: 'fixed',
       inset: 0,
       zIndex: 100,
@@ -50,10 +50,10 @@ export default function AirWaybillModal({ consignment, isOpen, onClose }: AirWay
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '20px',
+      padding: 'clamp(8px, 3vw, 20px)',
       overflowY: 'auto'
     }}>
-      <div style={{
+      <div className="airwaybill-modal-window" style={{
         background: '#ffffff',
         color: '#0f172a',
         width: '100%',
@@ -61,7 +61,7 @@ export default function AirWaybillModal({ consignment, isOpen, onClose }: AirWay
         borderRadius: '12px',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
         position: 'relative',
-        maxHeight: '90vh',
+        maxHeight: '92vh',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden'
@@ -123,8 +123,10 @@ export default function AirWaybillModal({ consignment, isOpen, onClose }: AirWay
 
         {/* Waybill Printable Document Body */}
         <div className="waybill-document" style={{
-          padding: '30px',
+          padding: 'clamp(12px, 3vw, 30px)',
           overflowY: 'auto',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
           fontSize: '12px',
           lineHeight: '1.4',
           background: '#ffffff',

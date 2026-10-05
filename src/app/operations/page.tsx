@@ -33,7 +33,10 @@ import {
   CheckCircle,
   FileText,
   RefreshCw,
-  Camera
+  Camera,
+  ChevronLeft,
+  Info,
+  ArrowLeft
 } from 'lucide-react';
 import { Conversation, ChatMessage, ConversationStatus, CannedResponse } from '@/lib/chatTypes';
 import { INITIAL_CANNED_RESPONSES } from '@/data/initialChats';
@@ -86,6 +89,7 @@ interface EmailOutboxItem {
 
 export default function OperationsPortalPage() {
   const [activeTab, setActiveTab] = useState<'CHAT_CRM' | 'CONSIGNMENTS' | 'EMAIL_DELIVERABILITY'>('CHAT_CRM');
+  const [mobileChatView, setMobileChatView] = useState<'INBOX' | 'CONVERSATION' | 'INFO'>('INBOX');
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   // ── CRM Conversations & Chat States ──
@@ -609,6 +613,21 @@ export default function OperationsPortalPage() {
     return conversations.filter((c) => c.status === 'RESOLVED').length;
   }, [conversations]);
 
+  // Computed Filtered Consignments
+  const filteredConsignments = useMemo(() => {
+    return consignments.filter((c) => {
+      if (consignmentStatusFilter !== 'ALL' && c.status !== consignmentStatusFilter) return false;
+      if (consignmentSearch.trim()) {
+        const q = consignmentSearch.toLowerCase();
+        const matchesId = c.trackingId.toLowerCase().includes(q);
+        const matchesOrigin = c.originLocation.toLowerCase().includes(q);
+        const matchesDest = c.destinationLocation.toLowerCase().includes(q);
+        return matchesId || matchesOrigin || matchesDest;
+      }
+      return true;
+    });
+  }, [consignments, consignmentStatusFilter, consignmentSearch]);
+
   return (
     <div
       className="operations-shell"
@@ -622,115 +641,160 @@ export default function OperationsPortalPage() {
       }}
     >
       {/* ── Top Operations Command Bar ── */}
-      <header
-        className="operations-header"
-        style={{
-          height: '70px',
-          background: 'rgba(13, 13, 13, 0.95)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          backdropFilter: 'blur(20px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 28px',
-          position: 'sticky',
-          top: 0,
-          zIndex: 100,
-        }}
-      >
-        {/* Left: Brand & Operations Title */}
-        <div className="operations-header-primary" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, #FF6B35 0%, #E85A24 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 0 16px rgba(255, 107, 53, 0.4)',
-              }}
-            >
-              <Shield size={18} color="#FFFFFF" />
-            </div>
-            <div>
+      {/* ── Top Operations Command Bar ── */}
+      <header className="operations-header">
+        <div className="operations-header-inner">
+          {/* Top Brand & Actions Row */}
+          <div className="operations-header-top-row">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div
                 style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: '1.05rem',
-                  fontWeight: 900,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  lineHeight: 1.1,
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #FF6B35 0%, #E85A24 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 0 16px rgba(255, 107, 53, 0.4)',
+                  flexShrink: 0,
                 }}
               >
-                NAVITHON OPERATIONS
+                <Shield size={18} color="#FFFFFF" />
               </div>
+              <div>
+                <div
+                  style={{
+                    fontFamily: 'var(--font-display)',
+                    fontSize: '1.02rem',
+                    fontWeight: 900,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    lineHeight: 1.1,
+                  }}
+                >
+                  NAVITHON OPERATIONS
+                </div>
+                <div
+                  className="hide-mobile"
+                  style={{
+                    fontSize: '0.66rem',
+                    fontFamily: 'var(--font-mono)',
+                    color: 'var(--accent-orange)',
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  CUSTOMERS / CONSIGNMENTS / DELIVERIES / TRACKING
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions (Audio, Refresh, Purge, Agent badge) */}
+            <div className="operations-header-actions">
+              {/* Real-time metrics counters - visible on desktop/tablet */}
               <div
+                className="hide-mobile"
                 style={{
-                  fontSize: '0.68rem',
-                  fontFamily: 'var(--font-mono)',
-                  color: 'var(--accent-orange)',
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  paddingRight: '12px',
+                  borderRight: '1px solid rgba(255, 255, 255, 0.08)',
                 }}
               >
-                CUSTOMERS / CONSIGNMENTS / DELIVERIES / TRACKING
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                    ACTIVE
+                  </div>
+                  <div style={{ fontSize: '0.9rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent-orange)' }}>
+                    {activeChatsCount}
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                    QUEUE
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '0.9rem',
+                      fontFamily: 'var(--font-mono)',
+                      fontWeight: 800,
+                      color: waitingChatsCount > 0 ? '#F43F5E' : 'var(--accent-emerald)',
+                    }}
+                  >
+                    {waitingChatsCount}
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                    RESOLVED
+                  </div>
+                  <div style={{ fontSize: '0.9rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--text-secondary)' }}>
+                    {resolvedChatsCount}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sound Alert Toggle */}
+              <button
+                onClick={() => setSoundEnabled(!soundEnabled)}
+                title={soundEnabled ? 'Mute audio notification chimes' : 'Enable audio notification chimes'}
+                className="operations-tool-btn"
+              >
+                {soundEnabled ? <Volume2 size={15} color="#10B981" /> : <VolumeX size={15} />}
+                <span className="hide-mobile">{soundEnabled ? 'ALERTS ON' : 'MUTED'}</span>
+              </button>
+
+              {/* Refresh Operations Data */}
+              <button
+                onClick={handleRefreshAll}
+                title="Refresh active inquiries and consignments"
+                className="operations-tool-btn"
+              >
+                <RotateCcw size={14} />
+                <span className="hide-mobile">REFRESH</span>
+              </button>
+
+              {/* Purge All Chats */}
+              <button
+                onClick={handlePurgeAllChats}
+                disabled={isPurgingChat}
+                title="Purge all customer chat records and reset to clean state"
+                className="operations-tool-btn operations-tool-btn-danger"
+              >
+                <Trash2 size={13} />
+                <span className="hide-mobile">{isPurgingChat ? 'PURGING...' : 'PURGE'}</span>
+              </button>
+
+              {/* Agent Badge */}
+              <div className="operations-agent-badge">
+                <div className="operations-agent-avatar">DM</div>
+                <div className="hide-mobile">
+                  <div style={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.1 }}>David M.</div>
+                  <div style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-emerald)' }}>
+                    DISPATCH
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div
-            style={{
-              height: '28px',
-              width: '1px',
-              background: 'rgba(255, 255, 255, 0.1)',
-            }}
-          />
-
-          {/* Tab Switcher: Chat CRM vs Consignments Hub */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              background: 'rgba(255, 255, 255, 0.04)',
-              borderRadius: '10px',
-              padding: '3px',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-            }}
-          >
+          {/* Navigation Tabs Bar */}
+          <div className="operations-tabs-container">
             <button
-              onClick={() => setActiveTab('CHAT_CRM')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                border: 'none',
-                background: activeTab === 'CHAT_CRM' ? 'rgba(255, 107, 53, 0.15)' : 'transparent',
-                color: activeTab === 'CHAT_CRM' ? 'var(--accent-orange)' : 'var(--text-secondary)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
+              onClick={() => {
+                setActiveTab('CHAT_CRM');
+                setMobileChatView('INBOX');
               }}
+              className={`operations-tab-btn ${activeTab === 'CHAT_CRM' ? 'active' : ''}`}
             >
               <MessageSquare size={14} />
               <span>CUSTOMER INBOX</span>
               {waitingChatsCount > 0 && (
-                <span
-                  style={{
-                    background: '#FF6B35',
-                    color: '#FFFFFF',
-                    borderRadius: '9999px',
-                    padding: '1px 6px',
-                    fontSize: '0.68rem',
-                  }}
-                >
+                <span className="operations-tab-badge">
                   {waitingChatsCount}
                 </span>
               )}
@@ -738,21 +802,7 @@ export default function OperationsPortalPage() {
 
             <button
               onClick={() => setActiveTab('CONSIGNMENTS')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                border: 'none',
-                background: activeTab === 'CONSIGNMENTS' ? 'rgba(255, 107, 53, 0.15)' : 'transparent',
-                color: activeTab === 'CONSIGNMENTS' ? 'var(--accent-orange)' : 'var(--text-secondary)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
+              className={`operations-tab-btn ${activeTab === 'CONSIGNMENTS' ? 'active' : ''}`}
             >
               <Package size={14} />
               <span>SHIPMENTS & DELIVERY</span>
@@ -760,194 +810,16 @@ export default function OperationsPortalPage() {
 
             <button
               onClick={() => setActiveTab('EMAIL_DELIVERABILITY')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                border: 'none',
-                background: activeTab === 'EMAIL_DELIVERABILITY' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                color: activeTab === 'EMAIL_DELIVERABILITY' ? '#38bdf8' : 'var(--text-secondary)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
+              className={`operations-tab-btn ${activeTab === 'EMAIL_DELIVERABILITY' ? 'active email' : ''}`}
             >
               <Mail size={14} />
-              <span>OUTBOX & EMAIL DELIVERABILITY</span>
+              <span>OUTBOX &amp; EMAIL</span>
               {outboxItems.length > 0 && (
-                <span
-                  style={{
-                    background: 'rgba(56, 189, 248, 0.2)',
-                    color: '#38bdf8',
-                    borderRadius: '9999px',
-                    padding: '1px 6px',
-                    fontSize: '0.68rem',
-                  }}
-                >
+                <span className="operations-tab-badge email">
                   {outboxItems.length}
                 </span>
               )}
             </button>
-          </div>
-        </div>
-
-        {/* Right: Agent Status, Audio Toggle, Reset Demo */}
-        <div className="operations-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          {/* Real-time metrics counters */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '16px',
-              paddingRight: '16px',
-              borderRight: '1px solid rgba(255, 255, 255, 0.08)',
-            }}
-          >
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '0.66rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                ACTIVE CHATS
-              </div>
-              <div style={{ fontSize: '0.95rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent-orange)' }}>
-                {activeChatsCount}
-              </div>
-            </div>
-
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '0.66rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                IN QUEUE
-              </div>
-              <div
-                style={{
-                  fontSize: '0.95rem',
-                  fontFamily: 'var(--font-mono)',
-                  fontWeight: 800,
-                  color: waitingChatsCount > 0 ? '#F43F5E' : 'var(--accent-emerald)',
-                }}
-              >
-                {waitingChatsCount}
-              </div>
-            </div>
-
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '0.66rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                RESOLVED
-              </div>
-              <div style={{ fontSize: '0.95rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--text-secondary)' }}>
-                {resolvedChatsCount}
-              </div>
-            </div>
-          </div>
-
-          {/* Sound Alert Toggle */}
-          <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            title={soundEnabled ? 'Mute audio notification chimes' : 'Enable audio notification chimes'}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '8px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              color: soundEnabled ? 'var(--text-primary)' : 'var(--text-muted)',
-              fontSize: '0.75rem',
-              fontFamily: 'var(--font-mono)',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
-            {soundEnabled ? <Volume2 size={15} color="#10B981" /> : <VolumeX size={15} />}
-            <span>{soundEnabled ? 'ALERTS ON' : 'MUTED'}</span>
-          </button>
-
-          {/* Refresh Operations Data */}
-          <button
-            onClick={handleRefreshAll}
-            title="Refresh active inquiries and consignments"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '8px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              color: 'var(--text-secondary)',
-              fontSize: '0.75rem',
-              fontFamily: 'var(--font-mono)',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#FFFFFF')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
-          >
-            <RotateCcw size={14} />
-            <span>REFRESH</span>
-          </button>
-
-          {/* Purge All Chats */}
-          <button
-            onClick={handlePurgeAllChats}
-            disabled={isPurgingChat}
-            title="Purge all customer chat records and reset to clean state"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '8px',
-              background: 'rgba(239, 68, 68, 0.08)',
-              border: '1px solid rgba(239, 68, 68, 0.25)',
-              color: '#f87171',
-              fontSize: '0.75rem',
-              fontFamily: 'var(--font-mono)',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
-            <Trash2 size={13} />
-            <span>{isPurgingChat ? 'PURGING...' : 'PURGE CHATS'}</span>
-          </button>
-
-          {/* Agent Badge */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              background: 'rgba(255, 107, 53, 0.08)',
-              padding: '5px 12px',
-              borderRadius: '30px',
-              border: '1px solid rgba(255, 107, 53, 0.25)',
-            }}
-          >
-            <div
-              style={{
-                width: '26px',
-                height: '26px',
-                borderRadius: '50%',
-                background: '#FF6B35',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '0.72rem',
-                fontWeight: 800,
-                color: '#FFFFFF',
-              }}
-            >
-              DM
-            </div>
-            <div>
-              <div style={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.1 }}>David M.</div>
-              <div style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-emerald)' }}>
-                DISPATCH CONTROLLER
-              </div>
-            </div>
           </div>
         </div>
       </header>
@@ -956,25 +828,10 @@ export default function OperationsPortalPage() {
           TAB 1: LIVE CUSTOMER CHAT CRM (3-COLUMN WORKSPACE)
           ════════════════════════════════════════════════════════════ */}
       {activeTab === 'CHAT_CRM' && (
-        <div
-          style={{
-            flex: 1,
-            display: 'grid',
-            gridTemplateColumns: '320px 1fr 340px',
-            height: 'calc(100vh - 70px)',
-            overflow: 'hidden',
-          }}
-        >
+        <div className="operations-chat-layout">
           {/* ── COLUMN 1: INBOX CONVERSATIONS LIST ── */}
           <aside
-            style={{
-              background: '#0D0D0D',
-              borderRight: '1px solid rgba(255, 255, 255, 0.08)',
-              display: 'flex',
-              flexDirection: 'column',
-              height: '100%',
-              overflow: 'hidden',
-            }}
+            className={`operations-inbox-col ${mobileChatView === 'INBOX' ? 'mobile-active' : 'mobile-hidden'}`}
           >
             {/* Inbox Filter & Search */}
             <div
@@ -1085,7 +942,10 @@ export default function OperationsPortalPage() {
                   return (
                     <div
                       key={conv.id}
-                      onClick={() => setSelectedConvId(conv.id)}
+                      onClick={() => {
+                        setSelectedConvId(conv.id);
+                        setMobileChatView('CONVERSATION');
+                      }}
                       style={{
                         padding: '14px 16px',
                         borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
@@ -1233,32 +1093,39 @@ export default function OperationsPortalPage() {
 
           {/* ── COLUMN 2: ACTIVE CONVERSATION & REPLY DESK ── */}
           <main
-            style={{
-              background: '#090909',
-              display: 'flex',
-              flexDirection: 'column',
-              height: '100%',
-              overflow: 'hidden',
-            }}
+            className={`operations-chat-col ${mobileChatView === 'CONVERSATION' ? 'mobile-active' : 'mobile-hidden'}`}
           >
             {selectedConversation ? (
               <>
                 {/* Active Chat Top Bar */}
                 <div
                   style={{
-                    padding: '16px 24px',
+                    padding: '12px 16px',
                     borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
                     background: 'rgba(15, 15, 15, 0.8)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
+                    gap: '10px',
+                    flexWrap: 'wrap',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '180px' }}>
+                    {/* Mobile Back to Inbox Button */}
+                    <button
+                      onClick={() => setMobileChatView('INBOX')}
+                      className="operations-tool-btn show-mobile-flex"
+                      title="Back to inbox list"
+                      style={{ padding: '6px 8px', flexShrink: 0 }}
+                    >
+                      <ChevronLeft size={16} />
+                      <span>INBOX</span>
+                    </button>
+
                     <div
                       style={{
-                        width: '42px',
-                        height: '42px',
+                        width: '38px',
+                        height: '38px',
                         borderRadius: '50%',
                         background: 'linear-gradient(135deg, #222 0%, #333 100%)',
                         border: '1.5px solid rgba(255, 107, 53, 0.4)',
@@ -1266,8 +1133,9 @@ export default function OperationsPortalPage() {
                         alignItems: 'center',
                         justifyContent: 'center',
                         fontWeight: 800,
-                        fontSize: '0.9rem',
+                        fontSize: '0.85rem',
                         color: 'var(--accent-orange)',
+                        flexShrink: 0,
                       }}
                     >
                       {selectedConversation.visitorName.slice(0, 2).toUpperCase()}
@@ -1316,63 +1184,56 @@ export default function OperationsPortalPage() {
                     </div>
                   </div>
 
-                  {/* Actions: Status Dropdown & Transcript Export */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {/* Actions: Status Dropdown, Mobile Dossier Toggle & Transcript Export */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     {/* Status Changer */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                        STATUS:
-                      </span>
-                      <select
-                        value={selectedConversation.status}
-                        onChange={(e) => handleUpdateStatus(e.target.value as ConversationStatus)}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '8px',
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          border: '1px solid rgba(255, 255, 255, 0.12)',
-                          color:
-                            selectedConversation.status === 'ACTIVE'
-                              ? '#FF6B35'
-                              : selectedConversation.status === 'RESOLVED'
-                              ? '#10B981'
-                              : '#F59E0B',
-                          fontFamily: 'var(--font-mono)',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          outline: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <option value="ACTIVE" style={{ background: '#111', color: '#FF6B35' }}>
-                          ● ACTIVE CHAT
-                        </option>
-                        <option value="PENDING" style={{ background: '#111', color: '#F59E0B' }}>
-                          ● WAITING ON CUSTOMER
-                        </option>
-                        <option value="RESOLVED" style={{ background: '#111', color: '#10B981' }}>
-                          ✓ RESOLVED & CLOSED
-                        </option>
-                      </select>
-                    </div>
+                    <select
+                      value={selectedConversation.status}
+                      onChange={(e) => handleUpdateStatus(e.target.value as ConversationStatus)}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '8px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        color:
+                          selectedConversation.status === 'ACTIVE'
+                            ? '#FF6B35'
+                            : selectedConversation.status === 'RESOLVED'
+                            ? '#10B981'
+                            : '#F59E0B',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        outline: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <option value="ACTIVE" style={{ background: '#111', color: '#FF6B35' }}>
+                        ● ACTIVE
+                      </option>
+                      <option value="PENDING" style={{ background: '#111', color: '#F59E0B' }}>
+                        ● PENDING
+                      </option>
+                      <option value="RESOLVED" style={{ background: '#111', color: '#10B981' }}>
+                        ✓ RESOLVED
+                      </option>
+                    </select>
+
+                    {/* Mobile View Dossier Button */}
+                    <button
+                      onClick={() => setMobileChatView('INFO')}
+                      className="operations-tool-btn show-mobile-flex"
+                      title="View Customer Dossier & Telemetry"
+                    >
+                      <Info size={14} color="var(--accent-orange)" />
+                      <span>DOSSIER</span>
+                    </button>
 
                     {/* Export transcript */}
                     <button
                       onClick={handleExportTranscript}
                       title="Download chat transcript log"
-                      style={{
-                        padding: '6px 12px',
-                        borderRadius: '8px',
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        color: 'var(--text-secondary)',
-                        fontSize: '0.75rem',
-                        fontFamily: 'var(--font-mono)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                      }}
+                      className="operations-tool-btn hide-mobile"
                     >
                       <Download size={14} />
                       <span>EXPORT</span>
@@ -1622,23 +1483,33 @@ export default function OperationsPortalPage() {
               >
                 <MessageSquare size={48} strokeWidth={1.2} />
                 <p style={{ margin: 0, fontSize: '0.95rem' }}>Select an incoming customer conversation to begin dispatch</p>
+                <button
+                  onClick={() => setMobileChatView('INBOX')}
+                  className="btn btn-primary btn-sm show-mobile-flex"
+                  style={{ marginTop: '8px' }}
+                >
+                  <ArrowLeft size={14} />
+                  <span>View Customer Inbox</span>
+                </button>
               </div>
             )}
           </main>
 
           {/* ── COLUMN 3: CUSTOMER DOSSIER & SHIPMENT TELEMETRY ── */}
           <aside
-            style={{
-              background: '#0D0D0D',
-              borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
-              height: '100%',
-              overflowY: 'auto',
-              padding: '20px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '20px',
-            }}
+            className={`operations-dossier-col ${mobileChatView === 'INFO' ? 'mobile-active' : 'mobile-hidden'}`}
           >
+            {/* Mobile Return to Chat Button */}
+            <div className="show-mobile" style={{ marginBottom: '10px' }}>
+              <button
+                onClick={() => setMobileChatView('CONVERSATION')}
+                className="operations-tool-btn"
+                style={{ width: '100%', justifyContent: 'center', padding: '10px', fontSize: '0.8rem' }}
+              >
+                <ChevronLeft size={16} />
+                <span>RETURN TO CHAT CONVERSATION</span>
+              </button>
+            </div>
             {selectedConversation ? (
               <>
                 {/* Section: Visitor Telemetry */}
@@ -1924,7 +1795,7 @@ export default function OperationsPortalPage() {
           TAB 2: FREIGHT CONSIGNMENTS & TELEMETRY HUB
           ════════════════════════════════════════════════════════════ */}
       {activeTab === 'CONSIGNMENTS' && (
-        <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
+        <div className="operations-content-padding" style={{ flex: 1, overflowY: 'auto' }}>
           <div
             style={{
               display: 'flex',
@@ -1936,17 +1807,17 @@ export default function OperationsPortalPage() {
             }}
           >
             <div>
-              <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800 }}>
+              <h1 style={{ margin: 0, fontSize: '1.45rem', fontWeight: 800 }}>
                 Freight Consignments Telemetry
               </h1>
-              <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+              <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
                 Monitor active air cargo, ocean containers, customs inspections, and ground fleets.
               </p>
             </div>
 
             {/* Consignments Filters */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ position: 'relative', width: '260px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', width: '100%', maxWidth: '560px' }}>
+              <div style={{ position: 'relative', flex: '1 1 200px' }}>
                 <Search
                   size={15}
                   style={{
@@ -1979,6 +1850,7 @@ export default function OperationsPortalPage() {
                 value={consignmentStatusFilter}
                 onChange={(e) => setConsignmentStatusFilter(e.target.value)}
                 style={{
+                  flex: '1 1 180px',
                   padding: '8px 12px',
                   borderRadius: '8px',
                   background: 'rgba(255, 255, 255, 0.05)',
@@ -2003,13 +1875,15 @@ export default function OperationsPortalPage() {
             </div>
           </div>
 
-          {/* Consignments Table */}
+          {/* Desktop Consignments Table */}
           <div
+            className="hide-mobile overflow-touch"
             style={{
               background: 'rgba(20, 20, 20, 0.7)',
               border: '1px solid rgba(255, 255, 255, 0.08)',
               borderRadius: '16px',
               overflow: 'hidden',
+              marginBottom: '20px',
             }}
           >
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
@@ -2034,37 +1908,21 @@ export default function OperationsPortalPage() {
                 </tr>
               </thead>
               <tbody>
-                {(() => {
-                  const filtered = consignments.filter((c) => {
-                    if (consignmentStatusFilter !== 'ALL' && c.status !== consignmentStatusFilter) return false;
-                    if (consignmentSearch.trim()) {
-                      const q = consignmentSearch.toLowerCase();
-                      const matchesId = c.trackingId.toLowerCase().includes(q);
-                      const matchesOrigin = c.originLocation.toLowerCase().includes(q);
-                      const matchesDest = c.destinationLocation.toLowerCase().includes(q);
-                      return matchesId || matchesOrigin || matchesDest;
-                    }
-                    return true;
-                  });
-
-                  if (filtered.length === 0) {
-                    return (
-                      <tr>
-                        <td colSpan={6} style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                            <Package size={32} strokeWidth={1.5} color="var(--text-muted)" />
-                            <span style={{ fontSize: '0.9rem' }}>No freight consignments recorded yet.</span>
-                            <Link href="/book" className="btn btn-primary btn-sm" style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                              <PlusCircle size={14} />
-                              <span>Register New Consignment</span>
-                            </Link>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  }
-
-                  return filtered.map((c) => {
+                {filteredConsignments.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                        <Package size={32} strokeWidth={1.5} color="var(--text-muted)" />
+                        <span style={{ fontSize: '0.9rem' }}>No freight consignments recorded yet.</span>
+                        <Link href="/book" className="btn btn-primary btn-sm" style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <PlusCircle size={14} />
+                          <span>Register New Consignment</span>
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredConsignments.map((c) => {
                     const statusColor = getStatusColor(c.status);
                     return (
                     <tr
@@ -2220,10 +2078,134 @@ export default function OperationsPortalPage() {
                       </td>
                     </tr>
                     );
-                  });
-                })()}
+                  })
+                )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Consignment Cards View */}
+          <div className="show-mobile">
+            {filteredConsignments.length === 0 ? (
+              <div style={{ padding: '36px 16px', textAlign: 'center', color: 'var(--text-muted)', background: 'rgba(20, 20, 20, 0.5)', borderRadius: '12px' }}>
+                <Package size={28} strokeWidth={1.5} color="var(--text-muted)" style={{ margin: '0 auto 8px' }} />
+                <p style={{ margin: 0, fontSize: '0.88rem' }}>No freight consignments match filter.</p>
+                <Link href="/book" className="btn btn-primary btn-sm" style={{ marginTop: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <PlusCircle size={14} />
+                  <span>Register Consignment</span>
+                </Link>
+              </div>
+            ) : (
+              filteredConsignments.map((c) => {
+                const statusColor = getStatusColor(c.status);
+                return (
+                  <div key={c.trackingId} className="operations-mobile-card">
+                    <div className="operations-mobile-card-header">
+                      <Link
+                        href={`/track?id=${c.trackingId}`}
+                        target="_blank"
+                        style={{
+                          color: 'var(--accent-orange)',
+                          textDecoration: 'none',
+                          fontFamily: 'var(--font-mono)',
+                          fontWeight: 800,
+                          fontSize: '0.92rem',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        {c.trackingId}
+                        <ExternalLink size={12} />
+                      </Link>
+
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          padding: '3px 8px',
+                          borderRadius: '9999px',
+                          fontSize: '0.68rem',
+                          fontFamily: 'var(--font-mono)',
+                          fontWeight: 700,
+                          background: statusColor.bg,
+                          color: statusColor.text,
+                          border: `1px solid ${statusColor.border}`,
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: '5px',
+                            height: '5px',
+                            borderRadius: '50%',
+                            background: statusColor.dot,
+                          }}
+                        />
+                        {getStatusLabel(c.status)}
+                      </span>
+                    </div>
+
+                    <div className="operations-mobile-card-route">
+                      <span>{c.originLocation}</span>
+                      <span style={{ color: 'var(--accent-orange)' }}>→</span>
+                      <span>{c.destinationLocation}</span>
+                    </div>
+
+                    <div className="operations-mobile-card-meta">
+                      <div>Mode: <strong>{c.transportMode.replace('_', ' ')}</strong></div>
+                      <div>•</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <MapPin size={12} color="var(--accent-orange)" />
+                        <span>{c.currentLocation}</span>
+                      </div>
+                      {c.packageDetails.packageImage && (
+                        <>
+                          <div>•</div>
+                          <span style={{
+                            fontSize: '0.62rem',
+                            fontFamily: 'var(--font-mono)',
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            background: 'rgba(56, 189, 248, 0.12)',
+                            color: '#38bdf8',
+                            border: '1px solid rgba(56, 189, 248, 0.25)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px'
+                          }}>
+                            <Camera size={10} />
+                            <span>PHOTO</span>
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="operations-mobile-card-actions">
+                      <button
+                        onClick={() => openUpdateModal(c)}
+                        className="btn btn-primary btn-sm"
+                        style={{ flex: 1, padding: '8px 12px', fontSize: '0.74rem' }}
+                      >
+                        <PlusCircle size={14} />
+                        <span>CHECKPOINT</span>
+                      </button>
+
+                      <a
+                        href={`/api/consignments/${encodeURIComponent(c.trackingId)}/waybill-pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '8px 12px', fontSize: '0.74rem' }}
+                      >
+                        <Download size={14} />
+                        <span>PDF</span>
+                      </a>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       )}
@@ -2232,9 +2214,9 @@ export default function OperationsPortalPage() {
           TAB 3: OUTBOX & REAL-WORLD EMAIL DELIVERABILITY HUB
           ════════════════════════════════════════════════════════════ */}
       {activeTab === 'EMAIL_DELIVERABILITY' && (
-        <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
+        <div className="operations-content-padding" style={{ flex: 1, overflowY: 'auto' }}>
           {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '14px' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
@@ -2274,7 +2256,7 @@ export default function OperationsPortalPage() {
               background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.8) 0%, rgba(8, 14, 28, 0.95) 100%)',
               border: '1px solid rgba(56, 189, 248, 0.3)',
               borderRadius: '12px',
-              padding: '24px',
+              padding: '20px',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
                 <div style={{
@@ -2285,7 +2267,8 @@ export default function OperationsPortalPage() {
                   color: '#38bdf8',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  flexShrink: 0,
                 }}>
                   <Send size={18} />
                 </div>
@@ -2300,7 +2283,7 @@ export default function OperationsPortalPage() {
               </div>
 
               <form onSubmit={handleSendTestEmail} style={{ marginTop: '16px' }}>
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div className="outbox-probe-form-row">
                   <input
                     type="email"
                     required
@@ -2395,50 +2378,102 @@ export default function OperationsPortalPage() {
                 </div>
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
-                <thead>
-                  <tr style={{ background: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                    <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>TIME</th>
-                    <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>TRACKING ID</th>
-                    <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>RECIPIENT</th>
-                    <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>SUBJECT</th>
-                    <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>ATTACHMENT</th>
-                    <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>STATUS</th>
-                    <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'right' }}>ACTION</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <>
+                {/* Desktop Outbox Table */}
+                <div className="hide-mobile overflow-touch">
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>TIME</th>
+                        <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>TRACKING ID</th>
+                        <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>RECIPIENT</th>
+                        <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>SUBJECT</th>
+                        <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>ATTACHMENT</th>
+                        <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>STATUS</th>
+                        <th style={{ padding: '12px 20px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'right' }}>ACTION</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {outboxItems.map((item) => (
+                        <tr key={item.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                          <td style={{ padding: '12px 20px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                            {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}{' '}
+                            <small style={{ opacity: 0.6 }}>{new Date(item.timestamp).toLocaleDateString()}</small>
+                          </td>
+                          <td style={{ padding: '12px 20px', fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#38bdf8' }}>
+                            <Link href={`/track/${item.trackingId}`} target="_blank" style={{ color: '#38bdf8', textDecoration: 'none' }}>
+                              {item.trackingId}
+                            </Link>
+                          </td>
+                          <td style={{ padding: '12px 20px', color: '#FFFFFF', fontWeight: 600 }}>
+                            {item.to.join(', ')}
+                          </td>
+                          <td style={{ padding: '12px 20px', color: 'var(--text-secondary)', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.subject}
+                          </td>
+                          <td style={{ padding: '12px 20px' }}>
+                            {item.hasAttachment ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#10b981', fontSize: '0.72rem' }}>
+                                <FileText size={12} /> Waybill PDF
+                              </span>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>None</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '12px 20px' }}>
+                            <span style={{
+                              padding: '3px 8px',
+                              borderRadius: '999px',
+                              fontSize: '0.7rem',
+                              fontFamily: 'var(--font-mono)',
+                              fontWeight: 700,
+                              background: item.success ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                              color: item.success ? '#34d399' : '#fca5a5',
+                              border: item.success ? '1px solid #10b981' : '1px solid #ef4444'
+                            }}>
+                              {item.success ? 'DISPATCHED' : 'FAILED'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 20px', textAlign: 'right' }}>
+                            {item.previewHtml && (
+                              <button
+                                onClick={() => setPreviewItem(item)}
+                                style={{
+                                  padding: '5px 10px',
+                                  borderRadius: '6px',
+                                  background: 'rgba(255, 255, 255, 0.05)',
+                                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                                  color: '#FFFFFF',
+                                  fontSize: '0.72rem',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <Eye size={12} />
+                                <span>Preview</span>
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Outbox Cards */}
+                <div className="show-mobile" style={{ padding: '12px' }}>
                   {outboxItems.map((item) => (
-                    <tr key={item.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
-                      <td style={{ padding: '12px 20px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                        {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}{' '}
-                        <small style={{ opacity: 0.6 }}>{new Date(item.timestamp).toLocaleDateString()}</small>
-                      </td>
-                      <td style={{ padding: '12px 20px', fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#38bdf8' }}>
-                        <Link href={`/track/${item.trackingId}`} target="_blank" style={{ color: '#38bdf8', textDecoration: 'none' }}>
+                    <div key={item.id} className="operations-mobile-card" style={{ marginBottom: '10px' }}>
+                      <div className="operations-mobile-card-header">
+                        <Link href={`/track/${item.trackingId}`} target="_blank" style={{ color: '#38bdf8', fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.88rem', textDecoration: 'none' }}>
                           {item.trackingId}
                         </Link>
-                      </td>
-                      <td style={{ padding: '12px 20px', color: '#FFFFFF', fontWeight: 600 }}>
-                        {item.to.join(', ')}
-                      </td>
-                      <td style={{ padding: '12px 20px', color: 'var(--text-secondary)', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {item.subject}
-                      </td>
-                      <td style={{ padding: '12px 20px' }}>
-                        {item.hasAttachment ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#10b981', fontSize: '0.72rem' }}>
-                            <FileText size={12} /> Waybill PDF
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>None</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '12px 20px' }}>
                         <span style={{
-                          padding: '3px 8px',
+                          padding: '2px 8px',
                           borderRadius: '999px',
-                          fontSize: '0.7rem',
+                          fontSize: '0.68rem',
                           fontFamily: 'var(--font-mono)',
                           fontWeight: 700,
                           background: item.success ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
@@ -2447,33 +2482,42 @@ export default function OperationsPortalPage() {
                         }}>
                           {item.success ? 'DISPATCHED' : 'FAILED'}
                         </span>
-                      </td>
-                      <td style={{ padding: '12px 20px', textAlign: 'right' }}>
-                        {item.previewHtml && (
+                      </div>
+
+                      <div style={{ fontSize: '0.84rem', fontWeight: 600, color: '#FFFFFF' }}>
+                        {item.subject}
+                      </div>
+
+                      <div className="operations-mobile-card-meta">
+                        <div>To: <strong>{item.to.join(', ')}</strong></div>
+                        <div>•</div>
+                        <div>{new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        {item.hasAttachment && (
+                          <>
+                            <div>•</div>
+                            <span style={{ color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.72rem' }}>
+                              <FileText size={11} /> Waybill PDF
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {item.previewHtml && (
+                        <div className="operations-mobile-card-actions">
                           <button
                             onClick={() => setPreviewItem(item)}
-                            style={{
-                              padding: '5px 10px',
-                              borderRadius: '6px',
-                              background: 'rgba(255, 255, 255, 0.05)',
-                              border: '1px solid rgba(255, 255, 255, 0.1)',
-                              color: '#FFFFFF',
-                              fontSize: '0.72rem',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}
+                            className="btn btn-secondary btn-sm"
+                            style={{ width: '100%', padding: '8px', fontSize: '0.74rem' }}
                           >
-                            <Eye size={12} />
-                            <span>Preview</span>
+                            <Eye size={13} />
+                            <span>Preview Email HTML</span>
                           </button>
-                        )}
-                      </td>
-                    </tr>
+                        </div>
+                      )}
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              </>
             )}
           </div>
 
@@ -2488,7 +2532,7 @@ export default function OperationsPortalPage() {
               alignItems: 'center',
               justifyContent: 'center',
               zIndex: 9999,
-              padding: '24px'
+              padding: '12px'
             }}>
               <div style={{
                 background: '#0b1325',
@@ -2496,17 +2540,17 @@ export default function OperationsPortalPage() {
                 borderRadius: '12px',
                 width: '100%',
                 maxWidth: '740px',
-                maxHeight: '90vh',
+                maxHeight: '94vh',
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden'
               }}>
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#FFFFFF', margin: 0 }}>
                       Dispatched Email Preview
                     </h3>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                       To: {previewItem.to.join(', ')} | Subject: {previewItem.subject}
                     </div>
                   </div>
@@ -2517,11 +2561,11 @@ export default function OperationsPortalPage() {
                     ✕
                   </button>
                 </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '16px', background: '#070d18' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '12px', background: '#070d18' }}>
                   <iframe
                     srcDoc={previewItem.previewHtml}
                     title="Email Preview"
-                    style={{ width: '100%', height: '560px', border: 'none', borderRadius: '8px' }}
+                    style={{ width: '100%', height: 'min(70vh, 520px)', border: 'none', borderRadius: '8px' }}
                   />
                 </div>
               </div>
@@ -2542,17 +2586,19 @@ export default function OperationsPortalPage() {
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 1000,
-            padding: '20px',
+            padding: '16px',
           }}
         >
           <div
             style={{
               width: '520px',
               maxWidth: '100%',
+              maxHeight: '92vh',
+              overflowY: 'auto',
               background: '#121212',
               border: '1px solid rgba(255, 255, 255, 0.14)',
               borderRadius: '20px',
-              padding: '28px',
+              padding: '20px',
               boxShadow: '0 24px 60px rgba(0, 0, 0, 0.9)',
             }}
           >
