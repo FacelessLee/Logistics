@@ -353,9 +353,9 @@ export default function Home() {
 
                 <VehicularButton
                   variant="secondary"
-                  text="CALCULATE A RATE"
-                  href="/book"
-                  loadingText="CALCULATING FREIGHT..."
+                  text="TRACK SHIPMENT"
+                  href="/track"
+                  loadingText="ACQUIRING TELEMETRY..."
                 />
               </div>
             </FadeIn>
@@ -765,11 +765,11 @@ export default function Home() {
             </div>
 
             <Link
-              href="/book"
+              href="#contact"
               className="btn btn-secondary btn-sm"
               style={{ textDecoration: 'none' }}
             >
-              <span>CUSTOM SERVICE QUOTE</span>
+              <span>INQUIRE WITH DISPATCH</span>
               <ArrowRight size={14} />
             </Link>
           </div>
@@ -1382,7 +1382,7 @@ export default function Home() {
               marginBottom: '16px',
             }}
           >
-            DISPATCH & BOOKING
+            DISPATCH & TELEMETRY
           </div>
 
           <h2
@@ -1436,14 +1436,14 @@ export default function Home() {
             </a>
 
             <Link
-              href="/book"
+              href="/track"
               className="btn btn-secondary btn-lg"
               style={{ textDecoration: 'none' }}
             >
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--accent-orange)' }}>
                 [02]
               </span>
-              <span>START BOOKING SHIPMENT</span>
+              <span>TRACK LIVE CONSIGNMENT</span>
             </Link>
           </div>
 

@@ -47,9 +47,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    if (!body.sender?.name || !body.receiver?.name || !body.packageDetails?.description) {
+    if (!body.receiver?.name || !body.packageDetails?.description) {
       return NextResponse.json(
-        { success: false, error: 'Sender name, Receiver name, and Package description are required.' },
+        { success: false, error: 'Receiver name and Package description are required.' },
         { status: 400 }
       );
     }
@@ -74,18 +74,33 @@ export async function POST(request: NextRequest) {
     const trackingId = body.trackingId?.trim().toUpperCase() || generateTrackingId(prefix);
     const now = new Date().toISOString();
 
+    const senderName = body.sender?.name?.trim() || 'Authorized Shipper';
+    const senderCity = body.sender?.city?.trim() || '';
+    const senderCountry = body.sender?.country?.trim() || '';
+    const originLocation = (senderCity && senderCountry)
+      ? `${senderCity}, ${senderCountry}`
+      : (senderCity || senderCountry || 'Central Hub / Origin Terminal');
+
+    const receiverCity = body.receiver?.city?.trim() || '';
+    const receiverCountry = body.receiver?.country?.trim() || '';
+    const destinationLocation = (receiverCity && receiverCountry)
+      ? `${receiverCity}, ${receiverCountry}`
+      : (receiverCity || receiverCountry || 'Destination Terminal');
+
+    const currentLocation = senderCity ? `${senderCity} Dispatch Center` : 'Central Hub Dispatch Terminal';
+
     const initialCheckpoint: Checkpoint = {
       id: `cp-${Date.now()}-init`,
       timestamp: now,
       status: 'ORDER_CREATED',
       title: 'Consignment Registered & Tracking Assigned',
-      location: `${body.sender.city || 'Origin Terminal'}, ${body.sender.country || ''}`,
-      description: `Shipping instructions recorded for ${body.packageDetails.pieceCount || 1} piece(s) (${body.packageDetails.weightKg || 1} kg). Waybill generated.`,
+      location: originLocation,
+      description: `Shipping instructions recorded for ${body.packageDetails?.pieceCount || 1} piece(s) (${body.packageDetails?.weightKg || 1} kg). Waybill generated.`,
       facility: 'Navithon Central Dispatch & Booking Terminal'
     };
 
     // If packageImage is provided as Base64 data URL, cache to public uploads folder for high-availability access
-    const rawImage = body.packageDetails.packageImage;
+    const rawImage = body.packageDetails?.packageImage;
     let savedPackageImage: string | undefined = typeof rawImage === 'string' && rawImage.trim().length > 0 ? rawImage : undefined;
 
     if (savedPackageImage && savedPackageImage.startsWith('data:image/')) {
@@ -110,20 +125,20 @@ export async function POST(request: NextRequest) {
       transportMode: body.transportMode || 'AIR_FREIGHT',
       serviceTier: body.serviceTier || 'STANDARD_CARGO',
       sender: {
-        name: body.sender.name,
-        company: body.sender.company || '',
-        address: body.sender.address || '',
-        city: body.sender.city || '',
-        country: body.sender.country || '',
-        phone: body.sender.phone || '',
-        email: body.sender.email || ''
+        name: senderName,
+        company: body.sender?.company?.trim() || '',
+        address: body.sender?.address?.trim() || '',
+        city: senderCity,
+        country: senderCountry,
+        phone: body.sender?.phone?.trim() || '',
+        email: body.sender?.email?.trim() || ''
       },
       receiver: {
         name: body.receiver.name,
         company: body.receiver.company || '',
         address: body.receiver.address || '',
-        city: body.receiver.city || '',
-        country: body.receiver.country || '',
+        city: receiverCity,
+        country: receiverCountry,
         phone: body.receiver.phone || '',
         email: body.receiver.email || ''
       },
@@ -143,9 +158,9 @@ export async function POST(request: NextRequest) {
         name: 'Navithon Global Logistics Express',
         serviceCode: 'NVT-STD-CARGO'
       },
-      originLocation: `${body.sender.city || 'Origin'}, ${body.sender.country || ''}`,
-      destinationLocation: `${body.receiver.city || 'Destination'}, ${body.receiver.country || ''}`,
-      currentLocation: `${body.sender.city || 'Origin'} Dispatch Center`,
+      originLocation,
+      destinationLocation,
+      currentLocation,
       checkpoints: [initialCheckpoint],
       notes: body.notes || 'Consignment created via online booking portal.',
       signatureRequired: body.signatureRequired !== false

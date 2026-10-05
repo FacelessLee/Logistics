@@ -254,7 +254,6 @@ export default function Footer() {
             >
               {[
                 { href: '/track', label: 'Real-Time Telemetry Tracking' },
-                { href: '/book', label: 'Instant Freight Rate Calculator' },
                 { href: '#contact', label: 'Direct Dispatch Desk Inquiry' },
               ].map((link) => (
                 <Link

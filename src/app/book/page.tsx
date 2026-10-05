@@ -562,6 +562,26 @@ function BookingFormContent() {
   return (
     <div style={{ paddingTop: '40px', paddingBottom: '90px' }}>
       <div className="container" style={{ maxWidth: '960px', margin: '0 auto' }}>
+        {/* Back Link to Operations Portal */}
+        <div style={{ marginBottom: '20px' }}>
+          <Link
+            href="/operations"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.82rem',
+              color: 'var(--accent-orange)',
+              textDecoration: 'none',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+            }}
+          >
+            &larr; OPERATIONS CONSOLE // DISPATCH DESK
+          </Link>
+        </div>
+
         {/* Header */}
         <div style={{ marginBottom: '36px' }}>
           <div style={{
@@ -680,7 +700,7 @@ function BookingFormContent() {
           {/* Section 2: Shipper (Sender) Particulars */}
           <div className="glass-panel" style={{ padding: '28px' }}>
             <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '20px', color: 'var(--text-primary)' }}>
-              2. Shipper (Sender) Information
+              2. Shipper (Sender) Information <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--text-muted)' }}>(Optional)</span>
             </h3>
 
             <div style={{
@@ -689,11 +709,10 @@ function BookingFormContent() {
               gap: '18px'
             }}>
               <div className="form-group">
-                <label className="form-label">Contact Person Name *</label>
+                <label className="form-label">Contact Person Name (Optional)</label>
                 <input
                   type="text"
-                  required
-                  placeholder="e.g. John Doe"
+                  placeholder="e.g. John Doe (Optional)"
                   className="form-input"
                   value={senderName}
                   onChange={(e) => setSenderName(e.target.value)}
@@ -701,10 +720,10 @@ function BookingFormContent() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Company / Organization</label>
+                <label className="form-label">Company / Organization (Optional)</label>
                 <input
                   type="text"
-                  placeholder="e.g. Acme Corp"
+                  placeholder="e.g. Acme Corp (Optional)"
                   className="form-input"
                   value={senderCompany}
                   onChange={(e) => setSenderCompany(e.target.value)}
@@ -712,11 +731,10 @@ function BookingFormContent() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Street Address *</label>
+                <label className="form-label">Street Address (Optional)</label>
                 <input
                   type="text"
-                  required
-                  placeholder="e.g. 100 Main Street"
+                  placeholder="e.g. 100 Main Street (Optional)"
                   className="form-input"
                   value={senderAddress}
                   onChange={(e) => setSenderAddress(e.target.value)}
@@ -724,11 +742,10 @@ function BookingFormContent() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Origin City *</label>
+                <label className="form-label">Origin City (Optional)</label>
                 <input
                   type="text"
-                  required
-                  placeholder="e.g. London"
+                  placeholder="e.g. London (Optional)"
                   className="form-input"
                   value={senderCity}
                   onChange={(e) => setSenderCity(e.target.value)}
@@ -736,11 +753,10 @@ function BookingFormContent() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Origin Country *</label>
+                <label className="form-label">Origin Country (Optional)</label>
                 <input
                   type="text"
-                  required
-                  placeholder="e.g. United Kingdom"
+                  placeholder="e.g. United Kingdom (Optional)"
                   className="form-input"
                   value={senderCountry}
                   onChange={(e) => setSenderCountry(e.target.value)}
@@ -748,11 +764,10 @@ function BookingFormContent() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Phone Number *</label>
+                <label className="form-label">Phone Number (Optional)</label>
                 <input
                   type="text"
-                  required
-                  placeholder="e.g. +44 20 7946 0881"
+                  placeholder="e.g. +44 20 7946 0881 (Optional)"
                   className="form-input"
                   value={senderPhone}
                   onChange={(e) => setSenderPhone(e.target.value)}
@@ -760,11 +775,10 @@ function BookingFormContent() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Shipper Email Address (Receives Confirmation & Waybill) *</label>
+                <label className="form-label">Shipper Email Address (Optional)</label>
                 <input
                   type="email"
-                  required
-                  placeholder="shipper@example.com"
+                  placeholder="shipper@example.com (Optional)"
                   className="form-input"
                   value={senderEmail}
                   onChange={(e) => setSenderEmail(e.target.value)}

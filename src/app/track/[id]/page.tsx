@@ -156,8 +156,8 @@ export default function ConsignmentDetailPage() {
                 <span>Return to Tracking Hub</span>
               </Link>
 
-              <Link href="/book" className="btn btn-primary btn-sm">
-                <span>Book This Shipment</span>
+              <Link href="/#contact" className="btn btn-primary btn-sm">
+                <span>Contact Dispatch Support</span>
               </Link>
             </div>
           </div>

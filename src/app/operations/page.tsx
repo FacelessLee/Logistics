@@ -758,6 +758,22 @@ export default function OperationsPortalPage() {
                 <span className="hide-mobile">REFRESH</span>
               </button>
 
+              {/* New Consignment Booking Quick Action */}
+              <Link
+                href="/book"
+                title="Book new consignment"
+                className="operations-tool-btn"
+                style={{
+                  background: 'rgba(255, 107, 53, 0.15)',
+                  border: '1px solid rgba(255, 107, 53, 0.4)',
+                  color: 'var(--accent-orange)',
+                  textDecoration: 'none',
+                }}
+              >
+                <PlusCircle size={14} />
+                <span>+ BOOK</span>
+              </Link>
+
               {/* Purge All Chats */}
               <button
                 onClick={handlePurgeAllChats}
@@ -1806,13 +1822,37 @@ export default function OperationsPortalPage() {
               gap: '16px',
             }}
           >
-            <div>
-              <h1 style={{ margin: 0, fontSize: '1.45rem', fontWeight: 800 }}>
-                Freight Consignments Telemetry
-              </h1>
-              <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                Monitor active air cargo, ocean containers, customs inspections, and ground fleets.
-              </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+              <div>
+                <h1 style={{ margin: 0, fontSize: '1.45rem', fontWeight: 800 }}>
+                  Freight Consignments Telemetry
+                </h1>
+                <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                  Monitor active air cargo, ocean containers, customs inspections, and ground fleets.
+                </p>
+              </div>
+
+              <Link
+                href="/book"
+                className="btn btn-primary btn-sm"
+                style={{
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  letterSpacing: '0.04em',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  background: 'var(--accent-orange)',
+                  color: '#FFFFFF',
+                  boxShadow: '0 0 15px rgba(255, 107, 53, 0.3)',
+                }}
+              >
+                <PlusCircle size={15} />
+                <span>+ NEW CONSIGNMENT BOOKING</span>
+              </Link>
             </div>
 
             {/* Consignments Filters */}
