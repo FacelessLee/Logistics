@@ -312,17 +312,6 @@ export default function Footer() {
               >
                 contact@navithon.com
               </a>
-              <a
-                href="tel:+18005551234"
-                style={{
-                  color: 'var(--text-secondary)',
-                  textDecoration: 'none',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.85rem',
-                }}
-              >
-                +1 (800) 555-1234
-              </a>
 
               <div style={{ marginTop: '16px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                 <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Operating Hubs:</div>

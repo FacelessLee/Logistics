@@ -137,8 +137,10 @@ export function generateWaybillPdf(consignment: Consignment): Buffer {
   doc.text(`${consignment.sender.city}, ${consignment.sender.country}`, margin + 3, shipperLineY);
   shipperLineY += 4.5;
   doc.setFontSize(6.8);
-  doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-  doc.text(`Tel: ${consignment.sender.phone || 'N/A'}  •  Email: ${consignment.sender.email}`, margin + 3, shipperLineY);
+  const senderContact = consignment.sender.phone?.trim()
+    ? `Tel: ${consignment.sender.phone}  •  Email: ${consignment.sender.email || 'N/A'}`
+    : `Email: ${consignment.sender.email || 'N/A'}`;
+  doc.text(senderContact, margin + 3, shipperLineY);
 
   // Consignee Box
   const consigneeX = margin + boxWidth + 2;
@@ -170,8 +172,10 @@ export function generateWaybillPdf(consignment: Consignment): Buffer {
   doc.text(`${consignment.receiver.city}, ${consignment.receiver.country}`, consigneeX + 3, receiverLineY);
   receiverLineY += 4.5;
   doc.setFontSize(6.8);
-  doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-  doc.text(`Tel: ${consignment.receiver.phone || 'N/A'}  •  Email: ${consignment.receiver.email}`, consigneeX + 3, receiverLineY);
+  const receiverContact = consignment.receiver.phone?.trim()
+    ? `Tel: ${consignment.receiver.phone}  •  Email: ${consignment.receiver.email || 'N/A'}`
+    : `Email: ${consignment.receiver.email || 'N/A'}`;
+  doc.text(receiverContact, consigneeX + 3, receiverLineY);
 
   y += boxHeight + 2;
 

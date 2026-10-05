@@ -767,7 +767,7 @@ function BookingFormContent() {
                 <label className="form-label">Phone Number (Optional)</label>
                 <input
                   type="text"
-                  placeholder="e.g. +44 20 7946 0881 (Optional)"
+                  placeholder="Contact phone number (Optional)"
                   className="form-input"
                   value={senderPhone}
                   onChange={(e) => setSenderPhone(e.target.value)}
@@ -862,7 +862,7 @@ function BookingFormContent() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. +1 212 555 0184"
+                  placeholder="Recipient phone number"
                   className="form-input"
                   value={receiverPhone}
                   onChange={(e) => setReceiverPhone(e.target.value)}

@@ -418,22 +418,6 @@ export default function Navbar() {
               >
                 contact@navithon.com
               </a>
-              <a
-                href="tel:+18005551234"
-                style={{
-                  color: 'var(--text-secondary)',
-                  textDecoration: 'none',
-                  transition: 'color 0.2s',
-                }}
-                onMouseEnter={(e) => {
-                  (e.target as HTMLElement).style.color = 'var(--accent-orange)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.target as HTMLElement).style.color = 'var(--text-secondary)';
-                }}
-              >
-                +1 (800) 555-1234
-              </a>
             </div>
           </div>
 

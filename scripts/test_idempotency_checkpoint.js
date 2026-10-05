@@ -83,7 +83,7 @@ async function runTests() {
       address: '77 Silicon Way',
       city: 'Cambridge',
       country: 'United Kingdom',
-      phone: '+44 1223 555 019',
+      phone: '',
       email: 'm.vance@vancebiotech.co.uk'
     },
     receiver: {
@@ -92,7 +92,7 @@ async function runTests() {
       address: '2140 Tech Ridge Blvd',
       city: 'Austin',
       country: 'United States',
-      phone: '+1 512 555 0177',
+      phone: '',
       email: 's.connor@cyberdyne.org'
     },
     packageDetails: {

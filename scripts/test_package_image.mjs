@@ -17,7 +17,7 @@ async function testPackageImageWorkflow() {
       address: '742 Evergreen Terrace',
       city: 'London',
       country: 'United Kingdom',
-      phone: '+44 20 7946 0912',
+      phone: '',
       email: 'shipper.test@navithonlogistics.com'
     },
     receiver: {
@@ -26,7 +26,7 @@ async function testPackageImageWorkflow() {
       address: '14 Rue de la Paix',
       city: 'Paris',
       country: 'France',
-      phone: '+33 1 42 68 55 00',
+      phone: '',
       email: 'consignee.test@navithonlogistics.com'
     },
     packageDetails: {

@@ -1464,12 +1464,6 @@ export default function Home() {
             >
               contact@navithon.com
             </a>
-            <a
-              href="tel:+18005551234"
-              style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}
-            >
-              +1 (800) 555-1234
-            </a>
           </div>
         </div>
       </section>

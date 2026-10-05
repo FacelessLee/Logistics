@@ -183,7 +183,7 @@ export default function AirWaybillModal({ consignment, isOpen, onClose }: AirWay
               <div>{consignment.sender.address}</div>
               <div>{consignment.sender.city}, {consignment.sender.country}</div>
               <div style={{ marginTop: '4px', fontSize: '11px', color: '#475569' }}>
-                Tel: {consignment.sender.phone} | Email: {consignment.sender.email}
+                {consignment.sender.phone ? `Tel: ${consignment.sender.phone} | ` : ''}Email: {consignment.sender.email || 'N/A'}
               </div>
             </div>
 
@@ -199,7 +199,7 @@ export default function AirWaybillModal({ consignment, isOpen, onClose }: AirWay
               <div>{consignment.receiver.address}</div>
               <div>{consignment.receiver.city}, {consignment.receiver.country}</div>
               <div style={{ marginTop: '4px', fontSize: '11px', color: '#475569' }}>
-                Tel: {consignment.receiver.phone} | Email: {consignment.receiver.email}
+                {consignment.receiver.phone ? `Tel: ${consignment.receiver.phone} | ` : ''}Email: {consignment.receiver.email || 'N/A'}
               </div>
             </div>
           </div>
