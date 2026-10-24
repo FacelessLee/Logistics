@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { conversationId, sender, senderName, text, attachment } = body;
+    const { conversationId, sender, senderName, senderEmail, text, attachment } = body;
 
     if (!conversationId || !sender || (!text?.trim() && !attachment)) {
       return NextResponse.json(
@@ -68,11 +68,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (sender === 'visitor' && (!conversation.visitorEmail || !conversation.visitorEmail.includes('@'))) {
-      return NextResponse.json(
-        { success: false, error: 'Email address is required to chat with support' },
-        { status: 403 }
-      );
+    if (sender === 'visitor') {
+      const email = conversation.visitorEmail || (typeof senderEmail === 'string' && senderEmail.includes('@') ? senderEmail.trim() : '');
+      if (!email || !email.includes('@')) {
+        return NextResponse.json(
+          { success: false, error: 'Email address is required to chat with support' },
+          { status: 403 }
+        );
+      }
+      if (!conversation.visitorEmail && email) {
+        conversation.visitorEmail = email;
+      }
     }
 
     const effectiveSenderName =

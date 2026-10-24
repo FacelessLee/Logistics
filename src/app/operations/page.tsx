@@ -242,7 +242,17 @@ export default function OperationsPortalPage() {
         const res = await fetch('/api/chat/conversations');
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
-          setConversations(json.data);
+          setConversations((prev) => {
+            const serverConvs = json.data as Conversation[];
+            const serverIds = new Set(serverConvs.map((c) => c.id));
+            const now = Date.now();
+            const recentBroadcastConvs = prev.filter(
+              (c) => !serverIds.has(c.id) && (now - new Date(c.updatedAt).getTime() < 15000)
+            );
+            return [...serverConvs, ...recentBroadcastConvs].sort(
+              (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+            );
+          });
         }
 
         // Poll messages for active conversation

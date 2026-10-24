@@ -74,6 +74,7 @@ export default function LiveChatWidget() {
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
   const conversationRef = useRef<Conversation | null>(null);
   const soundEnabledRef = useRef<boolean>(soundEnabled);
+  const loadedSessionKeyRef = useRef<string>('');
   const isOperationsPage = pathname?.startsWith('/operations') || pathname?.startsWith('/admin');
 
   useEffect(() => {
@@ -157,10 +158,13 @@ export default function LiveChatWidget() {
   // Load existing conversation ONLY if visitor has provided a valid email
   useEffect(() => {
     if (!visitorId || !visitorEmail || isOperationsPage) return;
+    const sessionKey = `${visitorId}:${visitorEmail}`;
+    if (loadedSessionKeyRef.current === sessionKey && conversationRef.current?.id) return;
     let mounted = true;
 
     async function loadConversation() {
       try {
+        loadedSessionKeyRef.current = sessionKey;
         const response = await fetch('/api/chat/conversations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -213,6 +217,7 @@ export default function LiveChatWidget() {
       }
       setVisitorEmail(cleanEmail);
       setVisitorName(cleanName);
+      loadedSessionKeyRef.current = `${visitorId}:${cleanEmail}`;
 
       const response = await fetch('/api/chat/conversations', {
         method: 'POST',
@@ -253,6 +258,7 @@ export default function LiveChatWidget() {
     try {
       const newId = `vis-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
       localStorage.setItem('navithon_chat_visitor_id', newId);
+      loadedSessionKeyRef.current = `${newId}:${visitorEmail}`;
       setVisitorId(newId);
       setConversation(null);
       setMessages([]);
@@ -398,6 +404,7 @@ export default function LiveChatWidget() {
           conversationId: conversation.id,
           sender: 'visitor',
           senderName: conversation.visitorName,
+          senderEmail: visitorEmail || conversation.visitorEmail,
           text: messageContent,
           attachment,
         }),
