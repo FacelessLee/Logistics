@@ -241,6 +241,151 @@ html, body {
 .live-chat-actions button:hover { background: rgba(255,255,255,.16); }
 .live-chat-restored { display: flex; align-items: center; gap: 7px; padding: 8px 16px; color: #a15435; font-size: .72rem; background: #fff4ef; border-bottom: 1px solid #f5ddd2; }
 
+/* ── Pre-Chat Email Requirement Gate ── */
+.live-chat-gate-container {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 24px 20px;
+  background: #FFFFFF;
+}
+
+.live-chat-gate-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.live-chat-gate-badge {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: var(--accent-orange);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+  box-shadow: 0 8px 18px rgba(255, 107, 53, 0.28);
+}
+
+.live-chat-gate-title {
+  margin: 0 0 6px 0;
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: #1a1917;
+}
+
+.live-chat-gate-desc {
+  margin: 0 0 20px 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #78716c;
+  max-width: 290px;
+}
+
+.live-chat-gate-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+}
+
+.live-chat-gate-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.live-chat-gate-field label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #44403c;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.live-chat-gate-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.live-chat-gate-icon {
+  position: absolute;
+  left: 12px;
+  color: #a8a29e;
+  pointer-events: none;
+}
+
+.live-chat-gate-input-wrap input {
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border-radius: 10px;
+  border: 1px solid #e7e5e4;
+  background: #fafaf9;
+  font-size: 0.85rem;
+  color: #1c1917;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.live-chat-gate-input-wrap input:focus {
+  border-color: var(--accent-orange);
+  background: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.12);
+}
+
+.live-chat-gate-error {
+  font-size: 0.7rem;
+  color: #ef4444;
+  margin-top: 2px;
+}
+
+.live-chat-gate-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 16px;
+  border-radius: 10px;
+  background: var(--accent-orange);
+  border: none;
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 4px;
+}
+
+.live-chat-gate-submit:hover:not(:disabled) {
+  opacity: 0.94;
+  transform: translateY(-1px);
+}
+
+.live-chat-gate-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.live-chat-gate-security {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  color: #78716c;
+  margin-top: 4px;
+}
+
+
 .live-chat-messages { display: flex; flex: 1; flex-direction: column; gap: 13px; padding: 16px; overflow-y: auto; background: #fff; }
 .live-chat-welcome { align-self: center; max-width: 90%; padding: 7px 11px; color: #8b8179; font-size: .72rem; text-align: center; background: #faf8f6; border-radius: 8px; }
 .live-chat-message { display: flex; flex-direction: column; max-width: 82%; }
@@ -1576,6 +1721,30 @@ html, body {
   color: #ffffff;
 }
 
+/* ── Individual Conversation Delete Action ── */
+.operations-item-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.operations-item-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+
 .operations-agent-badge {
   display: flex;
   align-items: center;
@@ -1753,8 +1922,22 @@ html, body {
   .operations-tab-btn {
     flex: 1 0 auto;
     justify-content: center;
-    padding: 7px 10px;
-    font-size: 0.72rem;
+    padding: 8px 12px;
+    font-size: 0.76rem;
+    min-height: 42px;
+  }
+  .operations-tool-btn {
+    min-height: 42px;
+    padding: 8px 12px;
+    font-size: 0.76rem;
+  }
+  .operations-item-delete-btn {
+    width: 34px;
+    height: 34px;
+  }
+  .operations-header-actions {
+    flex-wrap: wrap;
+    gap: 8px;
   }
   .operations-chat-layout {
     display: flex;
@@ -1777,16 +1960,48 @@ html, body {
   .operations-mobile-chat-bar {
     display: flex;
   }
+  .operations-mobile-card-actions button,
+  .operations-mobile-card-actions a {
+    min-height: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
   .outbox-probe-row {
     flex-direction: column !important;
   }
   .outbox-probe-row button {
     width: 100% !important;
     justify-content: center !important;
+    min-height: 44px !important;
   }
   .site-footer .container {
     padding-top: 64px !important;
     padding-bottom: 40px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .operations-header {
+    padding: 8px 10px;
+  }
+  .operations-header-top-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .operations-header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .operations-tool-btn {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: 8px 8px;
+    min-height: 42px;
+    font-size: 0.72rem;
+  }
+  .hide-mobile-xs {
+    display: none !important;
   }
 }
 
@@ -2315,18 +2530,5 @@ html, body {
   }
 }
 
-/* Universal mobile optimization for glass-panel and cards */
-@media (max-width: 640px) {
-  .glass-panel {
-    padding: 16px !important;
-    border-radius: 14px !important;
-  }
-}
 
-@media (max-width: 480px) {
-  .glass-panel {
-    padding: 14px !important;
-    border-radius: 12px !important;
-  }
-}
 

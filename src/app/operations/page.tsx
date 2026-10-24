@@ -107,6 +107,7 @@ export default function OperationsPortalPage() {
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [isPurgingChat, setIsPurgingChat] = useState(false);
   const [purgeNotice, setPurgeNotice] = useState<string | null>(null);
+  const [deletingConvId, setDeletingConvId] = useState<string | null>(null);
 
   // ── Logistics Telemetry Lookup in Sidebar ──
   const [sidebarTrackingSearch, setSidebarTrackingSearch] = useState('');
@@ -149,12 +150,14 @@ export default function OperationsPortalPage() {
       broadcastChannelRef.current = bc;
 
       bc.onmessage = (event) => {
-        const { type, data } = event.data;
+        const { type, data } = event.data || {};
+        if (!data) return;
+
         if (type === 'NEW_MESSAGE') {
           const { message, conversation } = data;
 
           // Update message feed if viewing this conversation
-          if (message.conversationId === selectedConvId) {
+          if (message && message.conversationId === selectedConvId) {
             setActiveMessages((prev) => {
               if (prev.some((m) => m.id === message.id)) return prev;
               return [...prev, message];
@@ -162,20 +165,42 @@ export default function OperationsPortalPage() {
           }
 
           // Update conversation in list
-          setConversations((prev) => {
-            const index = prev.findIndex((c) => c.id === message.conversationId);
-            if (index !== -1) {
-              const updated = [...prev];
-              updated[index] = conversation;
-              return updated.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-            } else {
-              return [conversation, ...prev];
-            }
-          });
+          if (conversation) {
+            setConversations((prev) => {
+              const index = prev.findIndex((c) => c.id === conversation.id);
+              if (index !== -1) {
+                const updated = [...prev];
+                updated[index] = conversation;
+                return updated.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+              } else {
+                return [conversation, ...prev];
+              }
+            });
+          }
 
           // Play sound alert for visitor message
-          if (message.sender === 'visitor') {
+          if (message && message.sender === 'visitor') {
             if (soundEnabled) playAgentAlertChime();
+          }
+        }
+
+        if (type === 'CONVERSATION_UPDATED' && data.conversation) {
+          setConversations((prev) => {
+            const index = prev.findIndex((c) => c.id === data.conversation.id);
+            if (index !== -1) {
+              const updated = [...prev];
+              updated[index] = data.conversation;
+              return updated;
+            }
+            return [data.conversation, ...prev];
+          });
+        }
+
+        if (type === 'CONVERSATION_DELETED' && data.id) {
+          setConversations((prev) => prev.filter((c) => c.id !== data.id));
+          if (selectedConvId === data.id) {
+            setSelectedConvId(null);
+            setActiveMessages([]);
           }
         }
       };
@@ -416,6 +441,46 @@ export default function OperationsPortalPage() {
       await Promise.allSettled([fetchConversations(), fetchConsignments()]);
     } catch (err) {
       console.error('Failed to refresh operations data:', err);
+    }
+  };
+
+  // ── Delete Single Conversation with Confirmation & Backend Persistence ──
+  const handleDeleteConversation = async (
+    convId: string,
+    visitorName: string,
+    e?: React.MouseEvent
+  ) => {
+    if (e) e.stopPropagation();
+    const confirmed = window.confirm(
+      `Delete conversation with "${visitorName}"? This action is permanent and will remove all messages from the database.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setDeletingConvId(convId);
+      const res = await fetch(`/api/chat/conversations/${convId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setConversations((prev) => prev.filter((c) => c.id !== convId));
+        if (selectedConvId === convId) {
+          setSelectedConvId(null);
+          setActiveMessages([]);
+          setMobileChatView('INBOX');
+        }
+        broadcastChannelRef.current?.postMessage({
+          type: 'CONVERSATION_DELETED',
+          data: { id: convId },
+        });
+      } else {
+        alert(data.error || 'Failed to delete conversation.');
+      }
+    } catch (err) {
+      console.error('Delete conversation error:', err);
+      alert('Network error while deleting conversation.');
+    } finally {
+      setDeletingConvId(null);
     }
   };
 
@@ -1023,19 +1088,33 @@ export default function OperationsPortalPage() {
                           )}
                         </div>
 
-                        <span
-                          style={{
-                            fontSize: '0.68rem',
-                            fontFamily: 'var(--font-mono)',
-                            color: hasUnread ? 'var(--accent-orange)' : 'var(--text-muted)',
-                            fontWeight: hasUnread ? 700 : 400,
-                          }}
-                        >
-                          {new Date(conv.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span
+                            style={{
+                              fontSize: '0.68rem',
+                              fontFamily: 'var(--font-mono)',
+                              color: hasUnread ? 'var(--accent-orange)' : 'var(--text-muted)',
+                              fontWeight: hasUnread ? 700 : 400,
+                            }}
+                          >
+                            {new Date(conv.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+
+                          {/* Individual Persistent Delete Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteConversation(conv.id, conv.visitorName || 'Visitor', e)}
+                            disabled={deletingConvId === conv.id}
+                            className="operations-item-delete-btn"
+                            title="Delete conversation permanently"
+                            aria-label={`Delete conversation with ${conv.visitorName || 'visitor'}`}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
 
-                      {/* Company or Location Subtitle */}
+                      {/* Company, Email & Location Subtitle */}
                       <div
                         style={{
                           fontSize: '0.72rem',
@@ -1044,8 +1123,16 @@ export default function OperationsPortalPage() {
                           display: 'flex',
                           alignItems: 'center',
                           gap: '6px',
+                          flexWrap: 'wrap',
                         }}
                       >
+                        {conv.visitorEmail && (
+                          <>
+                            <Mail size={11} style={{ color: 'var(--accent-orange)' }} />
+                            <span style={{ color: 'var(--text-secondary)' }}>{conv.visitorEmail}</span>
+                            <span>•</span>
+                          </>
+                        )}
                         {conv.visitorCompany ? (
                           <>
                             <Building2 size={12} />
@@ -1187,8 +1274,17 @@ export default function OperationsPortalPage() {
                           fontSize: '0.74rem',
                           color: 'var(--text-muted)',
                           marginTop: '2px',
+                          flexWrap: 'wrap',
                         }}
                       >
+                        {selectedConversation.visitorEmail && (
+                          <>
+                            <span style={{ color: 'var(--accent-orange)', fontWeight: 600 }}>
+                              {selectedConversation.visitorEmail}
+                            </span>
+                            <span>•</span>
+                          </>
+                        )}
                         <span>{selectedConversation.visitorCompany || 'Direct Logistics Inquiry'}</span>
                         <span>•</span>
                         <span>{selectedConversation.visitorLocation}</span>
@@ -1253,6 +1349,23 @@ export default function OperationsPortalPage() {
                     >
                       <Download size={14} />
                       <span>EXPORT</span>
+                    </button>
+
+                    {/* Individual Delete Conversation */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleDeleteConversation(
+                          selectedConversation.id,
+                          selectedConversation.visitorName || 'Visitor'
+                        )
+                      }
+                      disabled={deletingConvId === selectedConversation.id}
+                      title="Delete conversation permanently"
+                      className="operations-tool-btn operations-tool-btn-danger"
+                    >
+                      <Trash2 size={13} />
+                      <span className="hide-mobile">DELETE</span>
                     </button>
                   </div>
                 </div>
@@ -2225,9 +2338,9 @@ export default function OperationsPortalPage() {
                       <button
                         onClick={() => openUpdateModal(c)}
                         className="btn btn-primary btn-sm"
-                        style={{ flex: 1, padding: '8px 12px', fontSize: '0.74rem' }}
+                        style={{ flex: 1, padding: '10px 14px', fontSize: '0.8rem', minHeight: '44px' }}
                       >
-                        <PlusCircle size={14} />
+                        <PlusCircle size={15} />
                         <span>CHECKPOINT</span>
                       </button>
 
@@ -2236,9 +2349,9 @@ export default function OperationsPortalPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="btn btn-secondary btn-sm"
-                        style={{ padding: '8px 12px', fontSize: '0.74rem' }}
+                        style={{ padding: '10px 14px', fontSize: '0.8rem', minHeight: '44px' }}
                       >
-                        <Download size={14} />
+                        <Download size={15} />
                         <span>PDF</span>
                       </a>
                     </div>
@@ -2766,17 +2879,20 @@ export default function OperationsPortalPage() {
                 <span>Broadcasting checkpoint will auto-dispatch real-time status update &amp; waybill PDF to: <strong>Shipper ({selectedConsignment.sender.email})</strong> and <strong>Consignee ({selectedConsignment.receiver.email})</strong></span>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   style={{
-                    padding: '10px 18px',
+                    padding: '12px 20px',
+                    minHeight: '44px',
                     borderRadius: '8px',
                     background: 'transparent',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
                     color: 'var(--text-muted)',
                     cursor: 'pointer',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
                   }}
                 >
                   Cancel
@@ -2786,13 +2902,15 @@ export default function OperationsPortalPage() {
                   type="submit"
                   disabled={isSubmittingCheckpoint}
                   style={{
-                    padding: '10px 22px',
+                    padding: '12px 24px',
+                    minHeight: '44px',
                     borderRadius: '8px',
                     background: 'var(--accent-orange)',
                     border: 'none',
                     color: '#FFFFFF',
                     fontWeight: 700,
                     cursor: 'pointer',
+                    fontSize: '0.85rem',
                   }}
                 >
                   {isSubmittingCheckpoint ? 'Broadcasting...' : 'Broadcast Checkpoint'}

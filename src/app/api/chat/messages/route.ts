@@ -60,17 +60,23 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-
-    const conv = await getConversationById(conversationId);
-    if (!conv) {
+    const conversation = await getConversationById(conversationId);
+    if (!conversation) {
       return NextResponse.json(
         { success: false, error: 'Conversation not found' },
         { status: 404 }
       );
     }
 
+    if (sender === 'visitor' && (!conversation.visitorEmail || !conversation.visitorEmail.includes('@'))) {
+      return NextResponse.json(
+        { success: false, error: 'Email address is required to chat with support' },
+        { status: 403 }
+      );
+    }
+
     const effectiveSenderName =
-      senderName || (sender === 'agent' ? 'David M. (Operations)' : conv.visitorName);
+      senderName || (sender === 'agent' ? 'David M. (Operations)' : (conversation.visitorName || 'Visitor'));
 
     const result = await addChatMessage(conversationId, {
       sender: sender as MessageSender,

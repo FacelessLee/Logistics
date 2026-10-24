@@ -24,11 +24,18 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { visitorId, name, email, company, location, currentPage } = body;
-
+    const { visitorId, name, email, company, location, currentPage } = body || {};
     if (!visitorId || typeof visitorId !== 'string') {
       return NextResponse.json(
-        { success: false, error: 'visitorId string is required' },
+        { success: false, error: 'visitorId is required' },
+        { status: 400 }
+      );
+    }
+
+    const cleanEmail = typeof email === 'string' ? email.trim() : '';
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      return NextResponse.json(
+        { success: false, error: 'A valid email address is required to connect to support.' },
         { status: 400 }
       );
     }

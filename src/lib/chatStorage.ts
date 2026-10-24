@@ -178,9 +178,12 @@ export async function getAllConversations(): Promise<Conversation[]> {
   const diskData = readChatStoreFromDisk();
   globalThis.__GLOBAL_CHAT_STORE__ = diskData;
 
-  return [...diskData.conversations].sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-  );
+  // Requirement: Only conversations with visitor email register in Operations Inbox
+  return diskData.conversations
+    .filter((c) => Boolean(c.visitorEmail && c.visitorEmail.includes('@')))
+    .sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
 }
 
 export async function getConversationById(id: string): Promise<Conversation | null> {
@@ -473,20 +476,52 @@ export async function markConversationRead(
   }
 
   writeChatStoreToDisk(store);
-  syncConversationToSupabase(conv).catch(() => {});
-
   return conv;
 }
 
+export async function deleteConversation(id: string): Promise<boolean> {
+  const store = getMemoryStore();
+  const initialLength = store.conversations.length;
+  store.conversations = store.conversations.filter((c) => c.id !== id);
+  delete store.messages[id];
+
+  if (store.conversations.length < initialLength) {
+    writeChatStoreToDisk(store);
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        await Promise.all([
+          supabase.from('messages').delete().eq('conversation_id', id),
+          supabase.from('conversations').delete().eq('id', id),
+        ]);
+      } catch (err) {
+        console.warn('[chatStorage] Supabase delete error:', err);
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
 export async function resetChatStore(): Promise<void> {
-  const empty: ChatStoreData = { conversations: [], messages: {} };
+  const empty: ChatStoreData = {
+    conversations: [],
+    messages: {},
+  };
   globalThis.__GLOBAL_CHAT_STORE__ = empty;
   writeChatStoreToDisk(empty);
 
-  if (isSupabaseConfigured()) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      await supabase.from('messages').delete().neq('id', '__never_match__');
-      await supabase.from('conversations').delete().neq('id', '__never_match__');
-    } catch {}
+      await Promise.all([
+        supabase.from('messages').delete().neq('id', '__never_match__'),
+        supabase.from('conversations').delete().neq('id', '__never_match__'),
+      ]);
+    } catch (err) {
+      console.warn('[chatStorage] Failed to purge Supabase tables:', err);
+    }
   }
 }
+
+
+

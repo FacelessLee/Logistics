@@ -4,7 +4,8 @@ import {
   getMessagesForConversation,
   updateConversationStatus,
   updateConversationNotes,
-  markConversationRead
+  markConversationRead,
+  deleteConversation
 } from '@/lib/chatStorage';
 import { ConversationStatus } from '@/lib/chatTypes';
 
@@ -77,6 +78,40 @@ export async function PATCH(
     console.error('Failed to update conversation:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to update conversation' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'Conversation ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const deleted = await deleteConversation(id);
+    if (!deleted) {
+      return NextResponse.json(
+        { success: false, error: 'Conversation not found or already deleted' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Conversation ${id} and all related messages deleted successfully.`
+    });
+  } catch (error) {
+    console.error('Failed to delete conversation:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete conversation' },
       { status: 500 }
     );
   }
