@@ -24,15 +24,9 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { visitorId, name, email, company, location, currentPage } = body || {};
-    if (!visitorId || typeof visitorId !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'visitorId is required' },
-        { status: 400 }
-      );
-    }
+    const { visitorId, name, email, company, location, currentPage, forceNew } = body || {};
 
-    const cleanEmail = typeof email === 'string' ? email.trim() : '';
+    const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
     if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
       return NextResponse.json(
         { success: false, error: 'A valid email address is required to connect to support.' },
@@ -40,13 +34,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { conversation, isNew } = await getOrCreateVisitorConversation(visitorId, {
-      name,
-      email,
-      company,
-      location,
-      currentPage
-    });
+    const effectiveVisitorId =
+      typeof visitorId === 'string' && visitorId.trim()
+        ? visitorId.trim()
+        : `vis-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+
+    const { conversation, isNew } = await getOrCreateVisitorConversation(
+      effectiveVisitorId,
+      {
+        name,
+        email: cleanEmail,
+        company,
+        location,
+        currentPage
+      },
+      Boolean(forceNew)
+    );
 
     const messages = await getMessagesForConversation(conversation.id);
 

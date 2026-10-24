@@ -157,8 +157,8 @@ export default function LiveChatWidget() {
 
   // Load existing conversation ONLY if visitor has provided a valid email
   useEffect(() => {
-    if (!visitorId || !visitorEmail || isOperationsPage) return;
-    const sessionKey = `${visitorId}:${visitorEmail}`;
+    if (!visitorEmail || isOperationsPage) return;
+    const sessionKey = `${visitorId || 'any'}:${visitorEmail.trim().toLowerCase()}`;
     if (loadedSessionKeyRef.current === sessionKey && conversationRef.current?.id) return;
     let mounted = true;
 
@@ -169,7 +169,7 @@ export default function LiveChatWidget() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            visitorId,
+            visitorId: visitorId || undefined,
             email: visitorEmail,
             name: visitorName || undefined,
             currentPage: pathname || '/',
@@ -177,11 +177,22 @@ export default function LiveChatWidget() {
           }),
         });
         const result = await response.json();
-        if (!mounted || !result.success) return;
+        if (!mounted || !result.success || !result.data) return;
+
+        // Synchronize visitor identity on this device with the persistent conversation
+        if (result.data.visitorId && result.data.visitorId !== visitorId) {
+          localStorage.setItem('navithon_chat_visitor_id', result.data.visitorId);
+          setVisitorId(result.data.visitorId);
+        }
+        if (result.data.visitorName && !visitorName) {
+          localStorage.setItem('navithon_visitor_name', result.data.visitorName);
+          setVisitorName(result.data.visitorName);
+        }
+
         setConversation(result.data);
         const incomingMessages = result.messages || [];
         setMessages(incomingMessages);
-        setIsRestoredSession(!result.isNew && incomingMessages.length > 1);
+        setIsRestoredSession(!result.isNew && incomingMessages.length > 0);
         setUnreadCount(
           incomingMessages.filter((m: ChatMessage) => m.sender === 'agent' && !m.read).length
         );
@@ -199,7 +210,7 @@ export default function LiveChatWidget() {
   // Visitor submits email to talk to an agent
   const handleStartChat = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanEmail = emailInput.trim();
+    const cleanEmail = emailInput.trim().toLowerCase();
     const cleanName = nameInput.trim();
 
     if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
@@ -233,9 +244,23 @@ export default function LiveChatWidget() {
 
       const result = await response.json();
       if (result.success && result.data) {
+        // Synchronize visitorId on this device with the persistent conversation thread
+        if (result.data.visitorId) {
+          localStorage.setItem('navithon_chat_visitor_id', result.data.visitorId);
+          setVisitorId(result.data.visitorId);
+        }
+        if (result.data.visitorName) {
+          localStorage.setItem('navithon_visitor_name', result.data.visitorName);
+          setVisitorName(result.data.visitorName);
+        }
+
         setConversation(result.data);
-        setMessages(result.messages || []);
-        setIsRestoredSession(!result.isNew && (result.messages || []).length > 1);
+        const incomingMessages = result.messages || [];
+        setMessages(incomingMessages);
+        setIsRestoredSession(!result.isNew && incomingMessages.length > 0);
+        setUnreadCount(
+          incomingMessages.filter((m: ChatMessage) => m.sender === 'agent' && !m.read).length
+        );
 
         // Notify other tabs
         broadcastChannelRef.current?.postMessage({
@@ -255,6 +280,11 @@ export default function LiveChatWidget() {
 
   const handleResetChat = useCallback(async () => {
     if (typeof window === 'undefined') return;
+    const confirmReset = window.confirm(
+      'Would you like to start a fresh support inquiry? Your ongoing chat history will be archived.'
+    );
+    if (!confirmReset) return;
+
     try {
       const newId = `vis-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
       localStorage.setItem('navithon_chat_visitor_id', newId);
@@ -274,7 +304,8 @@ export default function LiveChatWidget() {
             email: visitorEmail,
             name: visitorName || undefined,
             currentPage: pathname || '/',
-            location: 'Website visitor'
+            location: 'Website visitor',
+            forceNew: true,
           }),
         });
         const result = await response.json();
@@ -555,7 +586,7 @@ export default function LiveChatWidget() {
               {isRestoredSession && (
                 <div className="live-chat-restored">
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                    <RotateCcw size={12} /> Previous conversation restored
+                    <RotateCcw size={12} /> Previous conversation restored for {visitorEmail}
                   </span>
                   <button
                     onClick={handleResetChat}

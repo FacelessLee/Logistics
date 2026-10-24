@@ -141,13 +141,26 @@ export async function getAllConversations(): Promise<Conversation[]> {
         writeChatStoreToDisk(store);
 
         // Filter: Keep conversations that have a valid email OR active visitor messages
-        return convs
+        const filtered = convs
           .filter((c) => {
             const hasEmail = Boolean(c.visitorEmail && c.visitorEmail.includes('@'));
             const hasActivity = c.unreadCountAgent > 0 || (c.lastMessageText && !c.lastMessageText.startsWith('Welcome to Navithon'));
             return hasEmail || hasActivity;
           })
           .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+        // Deduplicate by visitorEmail so operations inbox has one consolidated thread per visitor email
+        const seenEmail = new Set<string>();
+        const deduped: Conversation[] = [];
+        for (const c of filtered) {
+          if (c.visitorEmail && c.visitorEmail.includes('@')) {
+            const normalized = c.visitorEmail.trim().toLowerCase();
+            if (seenEmail.has(normalized)) continue;
+            seenEmail.add(normalized);
+          }
+          deduped.push(c);
+        }
+        return deduped;
       }
     } catch (err) {
       console.warn('[ChatStorage] Supabase getAllConversations error, using disk cache:', err);
@@ -158,13 +171,25 @@ export async function getAllConversations(): Promise<Conversation[]> {
   const diskData = readChatStoreFromDisk();
   globalThis.__GLOBAL_CHAT_STORE__ = diskData;
 
-  return diskData.conversations
+  const filteredLocal = diskData.conversations
     .filter((c) => {
       const hasEmail = Boolean(c.visitorEmail && c.visitorEmail.includes('@'));
       const hasActivity = c.unreadCountAgent > 0 || (c.lastMessageText && !c.lastMessageText.startsWith('Welcome to Navithon'));
       return hasEmail || hasActivity;
     })
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+  const seenEmailLocal = new Set<string>();
+  const dedupedLocal: Conversation[] = [];
+  for (const c of filteredLocal) {
+    if (c.visitorEmail && c.visitorEmail.includes('@')) {
+      const normalized = c.visitorEmail.trim().toLowerCase();
+      if (seenEmailLocal.has(normalized)) continue;
+      seenEmailLocal.add(normalized);
+    }
+    dedupedLocal.push(c);
+  }
+  return dedupedLocal;
 }
 
 /**
@@ -203,8 +228,20 @@ export async function getConversationById(id: string): Promise<Conversation | nu
 
 /**
  * Retrieve all messages for a conversation, ordered chronologically.
+ * Deduplicates any legacy duplicate welcome messages.
  */
 export async function getMessagesForConversation(convId: string): Promise<ChatMessage[]> {
+  const sanitizeMessages = (msgs: ChatMessage[]): ChatMessage[] => {
+    let hasSeenWelcome = false;
+    return msgs.filter((m) => {
+      if (m.sender === 'agent' && m.text.startsWith('Welcome to Navithon Operations!')) {
+        if (hasSeenWelcome) return false;
+        hasSeenWelcome = true;
+      }
+      return true;
+    });
+  };
+
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase
@@ -214,7 +251,7 @@ export async function getMessagesForConversation(convId: string): Promise<ChatMe
         .order('timestamp', { ascending: true });
 
       if (!error && data && data.length > 0) {
-        const msgs = data.map(mapRowToMessage);
+        const msgs = sanitizeMessages(data.map(mapRowToMessage));
         const store = getMemoryStore();
         store.messages[convId] = msgs;
         writeChatStoreToDisk(store);
@@ -227,68 +264,124 @@ export async function getMessagesForConversation(convId: string): Promise<ChatMe
 
   const store = getMemoryStore();
   if (store.messages[convId] && store.messages[convId].length > 0) {
-    return store.messages[convId];
+    return sanitizeMessages(store.messages[convId]);
   }
   const disk = readChatStoreFromDisk();
-  return disk.messages[convId] || [];
+  return sanitizeMessages(disk.messages[convId] || []);
 }
 
 /**
  * Idempotent Visitor Conversation Creator / Retriever:
- * Checks for existing conversation by visitorId in Supabase and local store.
- * Returns the existing conversation if already present, preventing duplicate threads.
+ * Prioritizes cross-device lookup by visitorEmail so users returning on any device
+ * are instantly reconnected to their complete conversation history with the agent.
  */
 export async function getOrCreateVisitorConversation(
   visitorId: string,
-  metadata?: Partial<VisitorMetadata>
+  metadata?: Partial<VisitorMetadata>,
+  forceNew?: boolean
 ): Promise<{ conversation: Conversation; isNew: boolean }> {
   const store = getMemoryStore();
+  const cleanEmail = metadata?.email?.trim().toLowerCase();
 
-  // 1. Check Supabase for existing conversation by visitor_id
+  // 1. Primary Cross-Device Lookup: Search Supabase by visitor_email
   if (isSupabaseConfigured()) {
     try {
-      const { data: rows, error } = await supabase
-        .from('conversations')
-        .select('*')
-        .eq('visitor_id', visitorId)
-        .order('updated_at', { ascending: false })
-        .limit(1);
+      let matchedRows: any[] | null = null;
 
-      if (!error && rows && rows.length > 0) {
-        const existing = mapRowToConversation(rows[0]);
+      // Check by email first for cross-device persistence
+      if (cleanEmail && !forceNew) {
+        const { data: emailRows, error: emailErr } = await supabase
+          .from('conversations')
+          .select('*')
+          .ilike('visitor_email', cleanEmail)
+          .order('updated_at', { ascending: false });
+
+        if (!emailErr && emailRows && emailRows.length > 0) {
+          matchedRows = emailRows;
+        }
+      }
+
+      // Fallback to visitor_id if email was not provided or didn't match
+      if ((!matchedRows || matchedRows.length === 0) && visitorId && !forceNew) {
+        const { data: vidRows, error: vidErr } = await supabase
+          .from('conversations')
+          .select('*')
+          .eq('visitor_id', visitorId)
+          .order('updated_at', { ascending: false });
+
+        if (!vidErr && vidRows && vidRows.length > 0) {
+          matchedRows = vidRows;
+        }
+      }
+
+      if (matchedRows && matchedRows.length > 0) {
+        const primaryRow = matchedRows[0];
+        let existing = mapRowToConversation(primaryRow);
+
+        // If multiple duplicate conversations exist from past fragmented sessions, consolidate them into primary
+        if (matchedRows.length > 1 && cleanEmail) {
+          const duplicateIds = matchedRows.slice(1).map((r) => String(r.id));
+          try {
+            // Re-parent all messages to the primary conversation
+            await supabase
+              .from('messages')
+              .update({ conversation_id: existing.id })
+              .in('conversation_id', duplicateIds);
+
+            // Delete duplicate conversation headers
+            await supabase
+              .from('conversations')
+              .delete()
+              .in('id', duplicateIds);
+
+            // Consolidate in-memory store
+            duplicateIds.forEach((dupId) => {
+              const dupMsgs = store.messages[dupId] || [];
+              if (!store.messages[existing.id]) store.messages[existing.id] = [];
+              store.messages[existing.id].push(...dupMsgs);
+              delete store.messages[dupId];
+            });
+            store.conversations = store.conversations.filter((c) => !duplicateIds.includes(c.id));
+          } catch (mergeErr) {
+            console.warn('[ChatStorage] Error consolidating duplicate conversations:', mergeErr);
+          }
+        }
+
         const updates: Partial<Conversation> = {};
         if (metadata?.currentPage && metadata.currentPage !== existing.currentPage) {
           updates.currentPage = metadata.currentPage;
         }
-        if (metadata?.name && (!existing.visitorName || existing.visitorName.startsWith('Visitor #'))) {
-          updates.visitorName = metadata.name;
+        if (
+          metadata?.name &&
+          metadata.name.trim() &&
+          (!existing.visitorName || existing.visitorName.startsWith('Visitor #') || existing.visitorName === 'Visitor')
+        ) {
+          updates.visitorName = metadata.name.trim();
         }
-        if (metadata?.email && metadata.email !== existing.visitorEmail) {
-          updates.visitorEmail = metadata.email;
+        if (cleanEmail && existing.visitorEmail !== cleanEmail) {
+          updates.visitorEmail = cleanEmail;
         }
         if (metadata?.company && metadata.company !== existing.visitorCompany) {
           updates.visitorCompany = metadata.company;
         }
 
         if (Object.keys(updates).length > 0) {
-          const updated: Conversation = { ...existing, ...updates, updatedAt: new Date().toISOString() };
+          existing = { ...existing, ...updates, updatedAt: new Date().toISOString() };
           await supabase
             .from('conversations')
             .update({
-              visitor_name: updated.visitorName,
-              visitor_email: updated.visitorEmail || null,
-              updated_at: updated.updatedAt,
-              data: updated,
+              visitor_name: existing.visitorName,
+              visitor_email: existing.visitorEmail || null,
+              updated_at: existing.updatedAt,
+              data: existing,
             })
             .eq('id', existing.id);
-
-          const idx = store.conversations.findIndex((c) => c.id === existing.id);
-          if (idx !== -1) store.conversations[idx] = updated;
-          else store.conversations.unshift(updated);
-          writeChatStoreToDisk(store);
-
-          return { conversation: updated, isNew: false };
         }
+
+        const idx = store.conversations.findIndex((c) => c.id === existing.id);
+        if (idx !== -1) store.conversations[idx] = existing;
+        else store.conversations.unshift(existing);
+        writeChatStoreToDisk(store);
 
         return { conversation: existing, isNew: false };
       }
@@ -297,12 +390,36 @@ export async function getOrCreateVisitorConversation(
     }
   }
 
-  // 2. Check local disk fallback
-  const existingLocal = store.conversations.find((c) => c.visitorId === visitorId);
+  // 2. Check local disk fallback: check email first, then visitorId
+  let existingLocal: Conversation | undefined;
+  if (cleanEmail && !forceNew) {
+    existingLocal = store.conversations.find(
+      (c) => c.visitorEmail && c.visitorEmail.trim().toLowerCase() === cleanEmail
+    );
+  }
+  if (!existingLocal && visitorId && !forceNew) {
+    existingLocal = store.conversations.find((c) => c.visitorId === visitorId);
+  }
+
   if (existingLocal) {
-    if (metadata?.email && !existingLocal.visitorEmail) {
-      existingLocal.visitorEmail = metadata.email;
-      if (metadata.name) existingLocal.visitorName = metadata.name;
+    let updated = false;
+    if (cleanEmail && existingLocal.visitorEmail !== cleanEmail) {
+      existingLocal.visitorEmail = cleanEmail;
+      updated = true;
+    }
+    if (
+      metadata?.name &&
+      metadata.name.trim() &&
+      (!existingLocal.visitorName || existingLocal.visitorName.startsWith('Visitor #') || existingLocal.visitorName === 'Visitor')
+    ) {
+      existingLocal.visitorName = metadata.name.trim();
+      updated = true;
+    }
+    if (metadata?.currentPage && metadata.currentPage !== existingLocal.currentPage) {
+      existingLocal.currentPage = metadata.currentPage;
+      updated = true;
+    }
+    if (updated) {
       existingLocal.updatedAt = new Date().toISOString();
       writeChatStoreToDisk(store);
 
@@ -328,9 +445,9 @@ export async function getOrCreateVisitorConversation(
     return { conversation: existingLocal, isNew: false };
   }
 
-  // 3. Create brand new conversation
+  // 3. Create brand new conversation (only when no existing conversation matches email or visitorId)
   const newConvId = `conv-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  const defaultName = metadata?.name || `Visitor #${visitorId.slice(-4).toUpperCase()}`;
+  const defaultName = metadata?.name?.trim() || `Visitor #${visitorId.slice(-4).toUpperCase()}`;
   const now = new Date().toISOString();
 
   const welcomeMessageText =
@@ -340,7 +457,7 @@ export async function getOrCreateVisitorConversation(
     id: newConvId,
     visitorId,
     visitorName: defaultName,
-    visitorEmail: metadata?.email,
+    visitorEmail: cleanEmail || metadata?.email,
     visitorCompany: metadata?.company,
     visitorLocation: metadata?.location || 'International Visitor',
     currentPage: metadata?.currentPage || '/',
